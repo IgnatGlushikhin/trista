@@ -3184,7 +3184,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
                     Luna.Unity.Playable.InstallFullGame();
                     Luna.Unity.LifeCycle.GameEnded();
                     //JavaScriptInterface leads to android API
-                    JavaScriptInterface.closeWebContent(this.RaceCar.Wheat);
+                    JavaScriptInterface.closeWebContent(this.RaceCar.Wheat.toString());
                 });
             },
             /*EndGameButton.Start end.*/
