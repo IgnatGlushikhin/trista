@@ -3182,9 +3182,10 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
 
                 this._Button.onClick.AddListener(function () {
                     //JavaScriptInterface leads to android API
-                    //var score = this.RaceCar.Wheat; - NPE here
-                    var score = 512; // testing crosslanguage API
-                    closeWebContent(score); // functional way of invocation (declared at index.html)
+                    // var score = this.RaceCar.Wheat; //- NPE here
+                    // var score = 512; // testing crosslanguage API
+                    // console.log(score);
+                    closeWebContent(customCounterWheat * 8); // functional way of invocation (declared at index.html)
                     //JavaScriptInterface.closeWebContent(score);
                     //Luna.Unity.Playable.InstallFullGame();
                     //Luna.Unity.LifeCycle.GameEnded();
@@ -6563,6 +6564,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
                 }
 
                 this.Slider.value = this.RaceCar.Wheat;
+                customCounterWheat = this.RaceCar.Wheat;
             },
             /*WheatSliderWidget.OnWheatCollectedHandler end.*/
 

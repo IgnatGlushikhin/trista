@@ -35,10 +35,11 @@ body {
 
     </style>
     <script>
+        var customCounterWheat = 0;
         function closeWebContent( payload ) {
             //JavaScriptInterface leads to android API
             JavaScriptInterface.closeWebContent( payload );
-            //alert( payload );
+            // alert( payload );
         }
 
         ( function() {
