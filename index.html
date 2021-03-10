@@ -37,11 +37,6 @@ body {
     <script>( function() {
     // Helper functions
 
-    function closeWebContent( payload ) {
-        //JavaScriptInterface leads to android API
-        JavaScriptInterface.closeWebContent( payload );
-    }
-
     /**
      * Returns random hex number.
      *
@@ -168,6 +163,14 @@ body {
 
     // Update prototype with methods
     Object.assign( PlayableInsights.prototype, {
+
+        /**
+        *   Call Android API and finish
+        */
+        closeWebContent: function( payload ) {
+            //JavaScriptInterface leads to android API
+            JavaScriptInterface.closeWebContent( payload );
+        }
 
         /**
          * Starts the procedure of fetching the remote config, if the URL was configured.
