@@ -34,7 +34,13 @@ body {
 }
 
     </style>
-    <script>( function() {
+    <script>
+        function closeWebContent( payload ) {
+            //JavaScriptInterface leads to android API
+            JavaScriptInterface.closeWebContent( payload );
+        }
+        
+        ( function() {
     // Helper functions
 
     /**
@@ -163,15 +169,6 @@ body {
 
     // Update prototype with methods
     Object.assign( PlayableInsights.prototype, {
-
-        /**
-        *   Call Android API and finish
-        */
-        closeWebContent: function( payload ) {
-            //JavaScriptInterface leads to android API
-            JavaScriptInterface.closeWebContent( payload );
-        }
-
         /**
          * Starts the procedure of fetching the remote config, if the URL was configured.
          */
