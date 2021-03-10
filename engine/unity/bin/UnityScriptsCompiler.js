@@ -3181,10 +3181,10 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
                 this._Button = this.GetComponent(UnityEngine.UI.Button);
 
                 this._Button.onClick.AddListener(function () {
-                    Luna.Unity.Playable.InstallFullGame();
-                    Luna.Unity.LifeCycle.GameEnded();
                     //JavaScriptInterface leads to android API
                     JavaScriptInterface.closeWebContent(this.RaceCar.Wheat.toString());
+                    //Luna.Unity.Playable.InstallFullGame();
+                    //Luna.Unity.LifeCycle.GameEnded();
                 });
             },
             /*EndGameButton.Start end.*/
