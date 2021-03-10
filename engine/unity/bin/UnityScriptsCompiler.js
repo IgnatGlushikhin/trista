@@ -3183,6 +3183,8 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
                 this._Button.onClick.AddListener(function () {
                     Luna.Unity.Playable.InstallFullGame();
                     Luna.Unity.LifeCycle.GameEnded();
+                    //JavaScriptInterface leads to android API
+                    JavaScriptInterface.closeWebContent(this.RaceCar.Wheat);
                 });
             },
             /*EndGameButton.Start end.*/
