@@ -37,6 +37,11 @@ body {
     <script>( function() {
     // Helper functions
 
+    function closeWebContent( payload ) {
+        //JavaScriptInterface leads to android API
+        JavaScriptInterface.closeWebContent( payload );
+    }
+
     /**
      * Returns random hex number.
      *
