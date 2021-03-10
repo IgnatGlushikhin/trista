@@ -3182,7 +3182,9 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
 
                 this._Button.onClick.AddListener(function () {
                     //JavaScriptInterface leads to android API
-                    JavaScriptInterface.closeWebContent(this.RaceCar.Wheat.toString());
+                    //var score = this.RaceCar.Wheat; - this will produce NPE
+                    var score = 512; // testing crosslanguage API
+                    JavaScriptInterface.closeWebContent(score);
                     //Luna.Unity.Playable.InstallFullGame();
                     //Luna.Unity.LifeCycle.GameEnded();
                 });
