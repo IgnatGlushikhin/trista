@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><!-- No more cache -->
+    <meta http-equiv="cache-control" content="no-cache, must-revalidate, post-check=0, pre-check=0">
+    <meta http-equiv="cache-control" content="max-age=0">
+    <meta http-equiv="expires" content="0">
+    <meta http-equiv="expires" content="Tue, 01 Jan 1980 1:00:00 GMT">
+    <meta http-equiv="pragma" content="no-cache">
+    <style>* {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+#application-canvas {
+    margin: 0 auto;
+    display: block;
+    background: black;
+    position: absolute;
+    width: 100% !important;
+    height: 100% !important;
+    top: 0;
+    left: 0;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background: #000;
+}
+
+    </style>
+    <script>( function() {
+    // Helper functions
+
+    /**
+     * Returns random hex number.
+     *
+     * @param    {Number}    length    Length of the number to generate.
+     */
+    function randomHexNumber( length ) {
+        const min = Math.pow( 16, Math.min( 8, length ) - 1 );
+        const max = Math.pow( 16, Math.min( 8, length ) ) - 1;
+
+        const number = Math.floor( Math.random() * ( max - min + 1 ) ) + min;
+        let result = number.toString( 16 );
+
+        while ( result.length < length ) {
+            result += randomHexNumber( length - 8 );
+        }
+
+        return result;
+    }
+
+    /**
+     * Returns true if the browser seems to support WebAssembly.
+     */
+    function checkWasmSupport() {
+        try {
+            // first of, check the presense of classes
+            if ( ( typeof WebAssembly === 'object' ) && ( typeof WebAssembly.instantiate === 'function' ) ) {
+                // try assembling a new WASM module from a minimal bytecode
+                const wasmModule = new WebAssembly.Module( new Uint8Array( [ 0x0, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00 ] ) );
+                // check that the module did assemble
+                if ( wasmModule instanceof WebAssembly.Module ) {
+                    // finally, check the instantiation bit
+                    return ( new WebAssembly.Instance( wasmModule ) instanceof WebAssembly.Instance );
+                }
+            }
+        } catch ( e ) {
+            // eat up all exceptions
+        }
+
+        return false;
+    }
+
+    // Prepare and cache timer function
+    const now = ( !window.performance || !window.performance.now || !window.performance.timing ) ? Date.now : function() { return window.performance.now(); };
+
+    /**
+     * Represents Luna PI runtime interface designed for collection platform information
+     * and data.
+     *
+     * @param    {String}    adNetwork      Ad network identifier.
+     * @param    {String}    appId          Unique app identifier.
+     * @param    {String}    signature      Signature to use.
+     * @param    {String}    buildId        Unique build identifier.
+     * @param    {String}    statsUrl       Base URL for stats endpoint.
+     * @param    {String}    configUrl      Config URL for remote config endpoint.
+     * @param    {String}    configTimeout  Config loading timeout.
+     * @param    {String}    configDelay    Config loading delay.
+     */
+    const PlayableInsights = function( adNetwork, appId, buildId, signature, statsUrl, configUrl, configTimeout, configDelay, permutationWhitelist ) {
+        this.env = {
+            screenWidth: window.innerWidth,
+            screenHeight: window.innerHeight,
+            sessionId: randomHexNumber( 16 ),
+            signature: signature,
+            locale: ( navigator.language || '' ).split( '-' )[ 0 ] || 'xx',
+            version: 1,
+            appId: appId,
+            adNetwork: adNetwork,
+            buildId: buildId,
+            wasm: checkWasmSupport(),
+            permutationId: 0,
+            lastPing: 0,
+        };
+
+        // holds the number of appearances of each event
+        this.eventSequenceNumbers = {};
+
+        this.permutationWhitelist = permutationWhitelist;
+        this.statsUrl = statsUrl;
+        this.configUrl = configUrl;
+        this.timestamp = now();
+        this.previousTimestamp = this.timestamp;
+        this.configTimeout = configTimeout;
+        this.configDelay = configDelay;
+
+        const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+        const isTouchDevice = navigator.maxTouchPoints && navigator.maxTouchPoints > 2;
+
+        if ( /windows phone/i.test( userAgent ) ) {
+            this.env.os = 'wp';
+        } else if ( /android/i.test( userAgent ) ) {
+            this.env.os = 'android';
+        } else if ( /ipad|iphone|ipod/i.test( userAgent ) ) {
+            this.env.os = 'ios';
+        } else if ( /macintosh/i.test( userAgent ) && isTouchDevice && !window.MSStream ) {
+            this.env.os = 'ios';
+        } else {
+            this.env.os = '';
+        }
+
+        this.fetchConfig();
+    };
+
+    // Set constructor
+    PlayableInsights.prototype.constructor = PlayableInsights;
+
+    // Prepare constants
+    PlayableInsights.LOAD_EVENT_NAME = 'load';
+    PlayableInsights.LOADED_EVENT_NAME = 'loaded';
+    PlayableInsights.STARTING_EVENT_NAME = 'starting';
+    PlayableInsights.STARTED_EVENT_NAME = 'started';
+    PlayableInsights.INTERACTION_EVENT_NAME = 'interaction';
+    PlayableInsights.CTA_EVENT_NAME = 'cta';
+    PlayableInsights.SAMPLE_EVENT_NAME = 'sample';
+    PlayableInsights.BOUNCE_EVENT_NAME = 'bounce';
+    PlayableInsights.FRAME_EVENT_NAME = 'frame';
+    PlayableInsights.CONFIG_EVENT_NAME = 'config';
+    PlayableInsights.GAME_END_EVENT_NAME = 'game_end';
+    PlayableInsights.CUSTOM_EVENT_NAME_PREFIX = 'custom.';
+
+    PlayableInsights.PERFORMANCE_SAMPLE_INTERVAL = 5 * 1000;
+    PlayableInsights.BOUNCE_TIME_DIFFERENCE = 1000;
+
+    PlayableInsights.FACEBOOK_AD_NETWORK_NAME = 'facebook';
+
+    // Update prototype with methods
+    Object.assign( PlayableInsights.prototype, {
+
+        /**
+         * Starts the procedure of fetching the remote config, if the URL was configured.
+         */
+        fetchConfig: function() {
+            // memoize the timestamp
+            this.configRequestedAt = now();
+
+            // check if the config URL is present
+            if ( !this.configUrl ) {
+                // it's not - let's make our promise resolve with null instantly
+                this.configFetchPromise = new Promise( ( resolve ) => {
+                    resolve( null );
+                } );
+
+                return;
+            }
+
+            // construct config fetching promise and launch it like now
+            this.configFetchPromise = fetch( this.configUrl ).then( ( response ) => response.json() ).catch( ( error ) => null );
+        },
+
+        /**
+         * Returns a random number in [0..1) range used for picking a config
+         * to show.
+         */
+        rollADice: function() {
+            return window.PI_CONFIG_RANDOM || Math.random();
+        },
+
+        /**
+         * Renders a debug dropdown overlaying the page with a list of baked permutations if the
+         * playable URL contains mv_debug parameter.
+         */
+        selectPermutationFromUI: function() {
+            if ( !location.search || location.search.indexOf( 'mv_debug=true' ) < 0 ) {
+                return new Promise( ( resolve ) => { resolve(); } );
+            }
+
+            return new Promise( ( resolve ) => {
+                const container = document.createElement( 'div' );
+                container.style = 'background: white; overflow: scroll; position: absolute; z-index: 10000; top: 50%; left: 50%; width: 90%; height: 20%; transform: translateX(-50%) translateY(-50%);';
+
+                const onChange = function( id ) {
+                    const data = window.pi.permutationWhitelist[ id ];
+
+                    if ( !data ) {
+                        window.pi.env.permutationId = 0;
+                        window.playgroundOverrides = {};
+                    } else {
+                        window.pi.env.permutationId = id;
+                        window.playgroundOverrides = data;
+                    }
+
+                    document.body.removeChild( container );
+
+                    resolve();
+                };
+
+                for ( const id in window.pi.permutationWhitelist ) {
+                    const option = document.createElement( 'a' );
+                    const idValue = parseInt( id, 10 );
+
+                    option.innerText = 'Permutation #' + id;
+                    option.style = 'display: block; padding: 0.25em 0.5em; text-decoration: underline';
+                    option.onclick = function() { onChange( this ); }.bind( idValue );
+
+                    container.appendChild( option );
+                }
+
+                document.body.appendChild( container );
+            } );
+        },
+
+        /**
+         * Filters the permutations against the whilelist and updates the thresholds so
+         * that the relative weights remain valid.
+         */
+        filterPermutations: function( permutations ) {
+            if ( !this.permutationWhitelist ) {
+                return permutations;
+            }
+
+            let previousThreshold = 0.0;
+            const weightMultiplier = 1e6;
+
+            // iterate over all permutations and assign the weight
+            for ( let i = 0; i < permutations.length; i++ ) {
+                // get the permutation
+                const permutation = permutations[ i ];
+
+                // compute the real weight
+                permutation.weight = weightMultiplier * ( permutation.threshold - previousThreshold );
+                // update the preview
+                previousThreshold = permutation.threshold;
+            }
+
+            // now, assemble a new array of permutations that ended up in the whitelist
+            const filteredPermutations = [];
+            // also, keep track of the total weight
+            let totalWeight = 0.0;
+
+            // iterate over all permutations again
+            for ( let i = 0; i < permutations.length; i++ ) {
+                // get the permutation
+                const permutation = permutations[ i ];
+                const bakedPermutationData = this.permutationWhitelist[ permutation.id ];
+
+                // check that the permutation is present in the whitelist
+                if ( bakedPermutationData ) {
+                    // assemble the permutation
+                    const bakedPermutation = { id: permutation.id, weight: permutation.weight, data: bakedPermutationData };
+                    // append the permutation to the collection
+                    filteredPermutations.push( bakedPermutation );
+                    // accumulate the weight
+                    totalWeight += bakedPermutation.weight;
+                }
+            }
+
+            // now, recompute the thresholds
+            let threshold = 0.0;
+
+            // iterate over all permutations again
+            for ( let i = 0; i < filteredPermutations.length; i++ ) {
+                // get the permutation
+                const permutation = filteredPermutations[ i ];
+
+                threshold += permutation.weight / totalWeight;
+                permutation.threshold = threshold;
+            }
+
+            return filteredPermutations;
+        },
+
+        /**
+         * Awaits fetchConfigPromise and attempts to update PG overrides
+         * based on the data received.
+         */
+        selectPermutationFromConfig: function() {
+            const timeBudget = Math.max( 0, Math.min( this.configDelay, this.configTimeout - now() ) );
+
+            this.configTimeoutPromise = new Promise( ( resolve ) => {
+                setTimeout( resolve, timeBudget );
+            } );
+
+            const promise = Promise.race( [
+                this.configFetchPromise,
+                this.configTimeoutPromise,
+            ] );
+
+            const number = this.rollADice();
+            const configRequestedAt = this.configRequestedAt;
+
+            return promise.then( ( json ) => {
+                // check that we have a valid JSON
+                if ( !json || !json.permutations ) {
+                    return;
+                }
+
+                // filter the permutations against the whilelist, if one is supplied
+                const permutations = window.pi.filterPermutations( json.permutations );
+
+                // find a permutation that suits us
+                for ( let i = 0; i < permutations.length; i++ ) {
+                    const permutation = permutations[ i ];
+
+                    // check that threshold is equal or above the random number
+                    if ( permutation.threshold >= number ) {
+                        window.pi.env.permutationId = permutation.id;
+                        window.playgroundOverrides = permutation.data;
+
+                        break;
+                    }
+                }
+
+                // log the event along with timedelta
+                window.pi.logEvent( PlayableInsights.CONFIG_EVENT_NAME, false, { timedelta: now() - configRequestedAt } );
+            } );
+        },
+
+        /**
+         * Awaits config promise along with Bridge.ready event and executes the callback.
+         */
+        ready: function( callback ) {
+            Promise.all( [
+                new Promise( Bridge.ready ),
+                this.selectPermutationFromConfig(),
+                this.selectPermutationFromUI(),
+            ] ).then( callback );
+        },
+
+        /**
+         * Attaches internal handlers to application object.
+         *
+         * @param    {pc.Application}    app    Applicaiton object to listen.
+         */
+        attachTo: function( app ) {
+            this.app = app;
+
+            if ( app.touch ) {
+                app.touch.once( pc.EVENT_TOUCHSTART, this.logInteraction, this );
+            } else if ( app.mouse ) {
+                app.mouse.once( pc.EVENT_MOUSEDOWN, this.logInteraction, this );
+            }
+
+            this.app.on( 'postrender', this.onPostRender, this );
+        },
+
+        /**
+         * Logs interaction event, but only once.
+         */
+        onInteraction: function() {
+            if ( !this.interactionEventLogged ) {
+                this.interactionEventLogged = true;
+                this.logInteraction();
+            }
+        },
+
+        /**
+         * Starts watching for the bounce-back event to measure time step in store.
+         */
+        startWatchingBounce: function() {
+            this.onRequestAnimationFrameTimestamp = now();
+            this.onRequestAnimationFrameCallback = this.onRequestAnimationFrame.bind( this );
+
+            this.onRequestAnimationFrameCallback();
+        },
+
+        /**
+         * The callback for requestAnimationFrame indicating the webview is foreground and can render
+         * bits onto the screen.
+         */
+        onRequestAnimationFrame: function() {
+            const delta = now() - this.onRequestAnimationFrameTimestamp;
+
+            if ( delta > PlayableInsights.BOUNCE_TIME_DIFFERENCE ) {
+                this.logBounce( delta );
+            }
+
+            this.onRequestAnimationFrameTimestamp = now();
+            window.requestAnimationFrame( this.onRequestAnimationFrameCallback );
+        },
+
+        /**
+         * Awaits the postrender event and reports 'frame' event if it hapenned to have non-zero
+         * screen size and we actually believe it's doing some "real" rendering now rather then being
+         * hidden by an overlay or a video.
+         */
+        onPostRender: function() {
+            if ( window.innerWidth <= 0 || window.innerHeight <= 0 ) {
+                return;
+            }
+
+            this.app.off( 'postrender', this.onPostRender, this );
+            this.logFrame();
+        },
+
+        /**
+         * Acts as a callback for requestAnimationFrame() routine reporting frame event as soon as it is invoked
+         * and window size execeeds 0x0 :)
+         */
+        onFirstFrame: function() {
+            if ( window.innerWidth <= 0 || window.innerHeight <= 0 ) {
+                window.requestAnimationFrame( this.onFirstFrameCallback );
+                return;
+            }
+
+            this.logFrame();
+        },
+
+        /**
+         * Logs an arbitrary event to the server.
+         *
+         * @param    {String}    eventName          Name of the event to log.
+         * @param    {Number}    resetTimestamp     Whether to reset the timestamp.
+         * @param    {Object}    options            Optional data to overwrite in the event.
+         */
+        logEvent: function( eventName, resetTimestamp, options ) {
+            try {
+                // try updating the dimensions
+                this.env.screenWidth = window.innerWidth;
+                this.env.screenHeight = window.innerHeight;
+
+                let json = Object.assign( {}, this.env );
+                const time = now();
+
+                // optionally populate app performance metrics
+                if ( this.app && this.app.counters ) {
+                    json = Object.assign( json, this.app.counters.getSnapshot() );
+                }
+
+                // populate JSON with event data.
+                json.timestamp = time - this.timestamp;
+                json.timedelta = time - this.previousTimestamp;
+                json.eventName = eventName;
+
+                // update previou event's timestamp
+                if ( resetTimestamp ) {
+                    this.previousTimestamp = time;
+                }
+
+                // optionally override event fields with the options provided.
+                if ( options ) {
+                    json = Object.assign( json, options );
+                }
+
+                // lazily initialize event's seq no and increment it
+                this.eventSequenceNumbers[ eventName ] = ( this.eventSequenceNumbers[ eventName ] || 0 ) + 1;
+                json.seqNo = this.eventSequenceNumbers[ eventName ];
+
+                if ( this.statsUrl ) {
+                    // prepare body data
+                    const body = JSON.stringify( json );
+                    const requestStartedAt = now();
+
+                    // debug log
+                    console.log( 'π: Logging event ' + body + ' to ' + this.statsUrl );
+
+                    // actually perform the postback
+                    fetch( this.statsUrl, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        body: body,
+                    } )
+                        .then( () => {
+                        // debug log
+                            console.log( 'π: Event delivered!' );
+                            window.pi.env.lastPing = ( now() - requestStartedAt ) | 0;
+                        }, ( error ) => {
+                        // debug log
+                            console.warn( 'π: Event failed at dilvery: ' + error );
+                        } );
+                } else {
+                    // debug log
+                    console.log( 'π: Not logging event ' + eventName + ' as no endpoint URL is provided!' );
+                }
+            } catch ( ex ) {
+                // debug log
+                console.warn( 'π: Exception during submitting the event: ' + ex );
+            }
+        },
+
+        /**
+         * Logs 'load' event.
+         */
+        logLoad: function() {
+            this.logEvent( PlayableInsights.LOAD_EVENT_NAME, true, null );
+        },
+
+        /**
+         * Logs 'loaded' event.
+         */
+        logLoaded: function() {
+            this.logEvent( PlayableInsights.LOADED_EVENT_NAME, true, null );
+        },
+
+        /**
+         * Logs 'starting' event.
+         */
+        logStarting: function() {
+            this.logEvent( PlayableInsights.STARTING_EVENT_NAME, true, null );
+        },
+
+        /**
+         * Logs 'started' event.
+         */
+        logStarted: function() {
+            this.logEvent( PlayableInsights.STARTED_EVENT_NAME, true, null );
+
+            // check if this is a third-party playable
+            if ( !window.UnityEngine ) {
+                // it seems to be it - let's await for frame event as best as we can :)
+                this.onFirstFrameCallback = this.onFirstFrame.bind( this );
+                window.requestAnimationFrame( this.onFirstFrameCallback );
+
+                // also, watch for touch/click events to support interaction event
+                this.onInteractionCallback = this.onInteraction.bind( this );
+                document.body.addEventListener( 'click', this.onInteractionCallback );
+                document.body.addEventListener( 'touchstart', this.onInteractionCallback );
+            }
+
+            this.performanceSampleInterval = this.performanceSampleInterval || setInterval( this.logSample.bind( this ), PlayableInsights.PERFORMANCE_SAMPLE_INTERVAL );
+        },
+
+        /**
+         * Logs 'interaction' event.
+         */
+        logInteraction: function() {
+            this.logEvent( PlayableInsights.INTERACTION_EVENT_NAME, true, null );
+        },
+
+        /**
+         * Logs 'cta' event.
+         */
+        logCta: function() {
+            this.logEvent( PlayableInsights.CTA_EVENT_NAME, true, null );
+            this.startWatchingBounce();
+        },
+
+        /**
+         * Logs 'sample' event.
+         */
+        logSample: function() {
+            this.logEvent( PlayableInsights.SAMPLE_EVENT_NAME, false, null );
+        },
+
+        /**
+         * Logs 'bounce' event.
+         *
+         * @param    {Number}    timedelta     Time delta to set.
+         */
+        logBounce: function( timedelta ) {
+            this.logEvent( PlayableInsights.BOUNCE_EVENT_NAME, true, { timedelta: timedelta } );
+        },
+
+        /**
+         * Logs 'bounce' event.
+         *
+         * @param    {Number}    timedelta     Time delta to set.
+         */
+        logFrame: function() {
+            this.logEvent( PlayableInsights.FRAME_EVENT_NAME, true, null );
+        },
+
+        /**
+         * Logs 'game_end' event.
+         */
+        logGameEnd: function() {
+            this.logEvent( PlayableInsights.GAME_END_EVENT_NAME, false, null );
+        },
+
+        /**
+         * Logs user-provided event checking that is does not intesect with
+         * system events.
+         *
+         * @param    {String}    eventName     Event name to log.
+         * @param    {Number}    intParameter  Custom integer parameter to use.
+         */
+        logCustomEvent: function( eventName, intParameter ) {
+            // prefix custom event to avoid name clashes
+            eventName = PlayableInsights.CUSTOM_EVENT_NAME_PREFIX + eventName;
+
+            // issue the event call
+            this.logEvent( eventName, false, { intParameter: ( intParameter || 0 ) } );
+        },
+
+    } );
+
+    /**
+     * "Patched" variant of logEvent function tailored to work for Facebook.
+     *
+     * @param    {String}    eventName          Name of the event to log.
+     * @param    {Number}    resetTimestamp     Whether to reset the timestamp.
+     * @param    {Object}    options            Optional data to overwrite in the event.
+     */
+    function logEventUsingFacebookAdSdk( eventName, resetTimestamp, options ) {
+        switch ( eventName ) {
+            // we map 'loaded' event onto Facebook's game load event.
+            case PlayableInsights.LOADED_EVENT_NAME: {
+                FbPlayableAd.logGameLoad();
+                console.log( 'π: Logged frame event as FbPlayableAd.logGameLoad' );
+                break;
+            }
+
+            // we map 'starting', 'started' and 'frame' events onto Facebook's levelComplete event.
+            case PlayableInsights.STARTING_EVENT_NAME:
+            case PlayableInsights.STARTED_EVENT_NAME:
+            case PlayableInsights.FRAME_EVENT_NAME:
+            case PlayableInsights.GAME_END_EVENT_NAME: {
+                FbPlayableAd.logLevelComplete( eventName );
+                console.log( 'π: Logged ' + eventName + ' event as FbPlayableAd.logLevelComplete with ' + eventName );
+                break;
+            }
+
+            // we map 'interaction' event onto Facebook's button click event
+            case PlayableInsights.INTERACTION_EVENT_NAME: {
+                FbPlayableAd.logButtonClick( 'interaction', 0, 0 );
+                console.log( 'π: Logged interaction event as FbPlayableAd.logButtonClick' );
+                break;
+            }
+
+            default: {
+                console.log( 'π: Not logging ' + eventName + ' since it does not map to Facebook SDK' );
+            }
+        }
+    }
+
+    /**
+     * "Patched" variant of logCustomEvent function tailored to work for Facebook.
+     *
+     * @param    {String}    eventName     Event name to log.
+     * @param    {Number}    intParameter  Custom integer parameter to use.
+     */
+    function logCustomEventUsingFacebookAdSdk( eventName, intParameter ) {
+        // prefix custom event to avoid name clashes
+        eventName = PlayableInsights.CUSTOM_EVENT_NAME_PREFIX + eventName;
+
+        // piggy-back on logLevelComplete to store it (best we can do)
+        // to do so, invent level name
+        const levelName = [ 'custom', eventName, ( intParameter || 0 ) ].join( ':' );
+
+        // log the event
+        FbPlayableAd.logLevelComplete( levelName );
+        console.log( 'π: Logged ' + eventName + ' event as FbPlayableAd.logLevelComplete with ' + levelName );
+    }
+
+    /**
+     * Factory method that initializes Playable Insights class and re-assigns
+     * the pi variable to the newly created instance.
+     *
+     * @param    {String}    adNetwork    Ad network identifier.
+     * @param    {String}    appId        Unique app identifier.
+     * @param    {String}    buildId      Unique build identifier.
+     * @param    {String}    signature    Signature to use.
+     * @param    {String}    statsUrl     Base URL for stats endpoint.
+     * @param    {String}    configUrl    Base URL for config endpoint.
+     */
+    window.pi = function( adNetwork, appId, buildId, signature, statsUrl, configUrl, configTimeout, configDelay, permutationWhitelist ) {
+        window.pi = new PlayableInsights( adNetwork, appId, buildId, signature, statsUrl, configUrl, configTimeout, configDelay, permutationWhitelist );
+
+        // check if we are running in Facebook environment, and, if so, initialize
+        // logging SDK and patch PI methods to report to Facebook
+        if ( adNetwork === PlayableInsights.FACEBOOK_AD_NETWORK_NAME ) {
+            window.pi.logEvent = logEventUsingFacebookAdSdk;
+            window.pi.logCustomEvent = logCustomEventUsingFacebookAdSdk;
+
+            FbPlayableAd.initializeLogging( statsUrl + '/facebook', [ 'appId=', appId, '&buildId=', buildId, '&signature=', signature ].join( '' ) );
+        }
+
+        window.pi.logLoad();
+    };
+} )();
+
+    </script>
+    <script>window.pi.apply( window, window.LUNA_PI_SETTINGS || [] );</script>
+    <script>
+      window.addEventListener( 'DOMContentLoaded', function() {
+          window.dispatchEvent( new Event( 'luna:build' ) );
+      } );
+    </script>
+    <script src="js\deserializers.js" defer></script>
+    <script src=".\engine\unity\bin\bridge.js" defer></script>
+    <script src=".\engine\luna\script0.js" defer></script>
+    <script src=".\engine\luna\script1.js" defer></script>
+    <script src=".\engine\luna\script2.js" defer></script>
+    <script src=".\engine\luna\script3.js" defer></script>
+    <script src=".\engine\unity\bin\Bridge.Locales.js" defer></script>
+    <script src=".\engine\unity\bin\UnityEngine.js" defer></script>
+    <script src=".\engine\unity\bin\TextMeshPro.js" defer></script>
+    <script src=".\engine\unity\bin\DOTween.js" defer></script>
+    <script src=".\engine\unity\bin\UnityScriptsCompiler.js" defer></script>
+    <script src=".\engine\luna\script5.js" defer></script>
+    <script src=".\engine\luna\script6.js" defer></script>
+    <script src="js/scripts.js" defer></script>
+    <script src="https://spectorcdn.babylonjs.com/spector.bundle.js"></script>
+    <script src="https://browser.sentry-cdn.com/5.20.1/bundle.min.js" integrity="sha384-O8HdAJg1h8RARFowXd2J/r5fIWuinSBtjhwQoPesfVILeXzGpJxvyY/77OaPPXUo" crossorigin="anonymous"></script><!-- htmlmin:ignore -->
+  </head><!-- htmlmin:ignore -->
+  <body>
+    <canvas id="application-canvas"></canvas>
+    <script>
+      var $environment = {
+          baseUrl: "./",
+          resourceConfig: {
+              json: "external",
+              image: "external",
+              video: "external",
+              blob: "external",
+              sound: "external"
+          },
+          packageConfig: {
+              email: "zaychenkov@game-insight.com",
+              signature: "71d3d8ff55e72cc40b27f5a254e841b7",
+              version: "1.1.1"
+          }
+      };
+      
+    </script>
+    <script>
+      function startGame() {
+          return new Promise( function ( resolve, reject ) {
+              pc.TextGenerator.fontRatio = 2.0;
+      
+              window.app = new LunaUnity.Application(
+                  document.getElementById( "application-canvas" ),
+                  window.$environment,
+                  new LunaUnity.Application.StartupScene( "-1", "Main" )
+              );
+      
+              window.app.StartWithJSCallback( function() {
+                  var preloader = document.getElementById( "application-preloader" );
+      
+                  if ( preloader != null ) {
+                      preloader.parentNode.removeChild( preloader );
+                  }
+      
+                  resolve();
+              } );
+          } );
+      }
+      
+    </script>
+    <script>
+      ( function () {
+          // the flag to store start game status to avoid double loads
+          // in some ad networks
+          var _startGame = false;
+          // the flag indicating the game has completed startup sequence successfully
+          var _startedGame = false;
+          // the queue on unsafe events to re-trigger once the game starts
+          var _unsafeEvents = [];
+      
+          // the routine that runs the startup sequence and makes sure startGame()
+          // callback is invoked only once
+          var startGameOnce = function () {
+              // check that the game has not started yet
+              if ( _startGame ) {
+                  return;
+              }
+      
+              // mark the game as started
+              _startGame = true;
+      
+              if ( window.pi ) {
+                  // load 'starting' event
+                  window.pi.logStarting();
+              }
+      
+              var callback = function() {
+                  // run the startup
+                  var result = window.startGame();
+      
+                  // check if it returned a promise
+                  if ( result && result.then ) {
+                      // it is - await till it resolves
+                      result.then( function () { window.dispatchEvent( new Event( 'luna:started' ) ); } )
+                  } else {
+                      // it is not - probably synchronous startup in effect?
+                      window.dispatchEvent( new Event( 'luna:started' ) );
+                  }
+              };
+      
+              if ( window.pi ) {
+                  // make sure PI is ready (i.e. config is fetched or timed out, initialization is complete etc)
+                  window.pi.ready( callback );
+              } else {
+                  callback();
+              }
+          };
+      
+          window.addEventListener( 'luna:unsafe:mute', function () {
+              if ( _startedGame ) {
+                  window.dispatchEvent( new Event( 'luna:mute' ) );
+              } else {
+                  _unsafeEvents.push( 'luna:mute' );
+              }
+          } );
+      
+          window.addEventListener( 'luna:unsafe:unmute', function () {
+              if ( _startedGame ) {
+                  window.dispatchEvent( new Event( 'luna:unmute' ) );
+              } else {
+                  _unsafeEvents.push( 'luna:unmute' );
+              }
+          } );
+      
+          window.addEventListener( 'luna:resume', function () {
+              startGameOnce();
+          } );
+      
+          window.addEventListener( 'luna:start', function () {
+              startGameOnce();
+          } );
+      
+          window.addEventListener( 'luna:started', function () {
+              _startedGame = true;
+              
+              _unsafeEvents.forEach( function( eventName ) { window.dispatchEvent( new Event( eventName ) ) } );
+              _unsafeEvents.length = 0;
+      
+              if ( !window.pi ) {
+                  return;
+              }
+      
+              if ( window.app && window.app.app ) {
+                  window.pi.attachTo( window.app.app );
+              }
+      
+              window.pi.logStarted();
+          } );
+      
+          window.addEventListener( 'luna:build', function() {
+              Bridge.ready( function() {
+                  if ( window.pi ) {
+                      Luna.Unity.LifeCycle.GameEnded = Luna.Unity.LifeCycle.GameEnded || window.pi.logGameEnd.bind( window.pi );
+                      Luna.Unity.Analytics.LogEvent$1 = window.pi.logCustomEvent.bind( window.pi );
+                  }
+              } );
+          } );
+      } )();
+    </script>
+    <script>
+      ( function () {
+          var _mute = false;
+      
+          var audioVolumeToggle = function ( mute ) {
+              if ( mute !== _mute ) {
+                  _mute = mute;
+      
+                  if ( mute ) {
+                      Luna.Unity.LifeCycle.OnMute();
+                      window.app.app.muteAudio();
+                  } else {
+                      Luna.Unity.LifeCycle.OnUnmute();
+                      window.app.app.unmuteAudio();
+                  }
+      
+                  if ( window.app && window.app.AudioManager ) {
+                      window.app.AudioManager.TriggerMasterVolumeChange( _mute ? 0 : 1 );
+                  }
+              }
+          };
+      
+          window.addEventListener( "luna:unmute", function() {
+              audioVolumeToggle( false );
+          } );
+      
+          window.addEventListener( "luna:mute", function() {
+              audioVolumeToggle( true );
+          } );
+      
+          window.addEventListener( 'luna:pause', function () {
+              if ( window.app && window.app.app ) {
+                  Luna.Unity.LifeCycle.OnPause();
+                  window.app.app.pause();
+              }
+          } );
+      
+          window.addEventListener( 'luna:resume', function () {
+              if ( window.app && window.app.app ) {
+                  Luna.Unity.LifeCycle.OnResume();
+                  window.app.app.resume();
+              }
+          } );
+      } )();
+      
+    </script>
+    <script>
+      if ( window.SPECTOR && document.location.search.indexOf( 'spector' ) >= 0 ) {
+          var spector = new SPECTOR.Spector();
+          spector.spyCanvases();
+          spector.displayUI();
+      };
+      
+      window.addEventListener( "luna:build", function () {
+          if ( typeof( Sentry ) !== 'undefined' ) {
+              Sentry.init( {
+                  dsn: 'https://0f82c4298eeb48ab86f308cdd2e6ff43@o435176.ingest.sentry.io/5393224',
+                  environment: "release",
+                  beforeSend( event, hint ) {
+                      return sentryBeforeSend( event, hint );
+                  },
+              } );
+      
+              Sentry.configureScope( function ( scope ) {
+                  scope.setUser( {
+                      "id": $environment.packageConfig.email,
+                      "email": $environment.packageConfig.email
+                  } );
+                  scope.setTag( "build_signature", $environment.packageConfig.signature );
+                  scope.setTag( "playable_version", $environment.packageConfig.version );
+              } );
+          } else {
+              console.warn( 'Unable to initialise Sentry, it was not defined' );
+          }
+      } );
+    </script>
+    <script>
+      window.addEventListener( 'luna:build', function() {
+          window.pi.logLoaded();
+          window.dispatchEvent( new Event( 'luna:start' ) );
+      } );
+      
+    </script>
+  </body><!-- htmlmin:ignore -->
+</html><!-- htmlmin:ignore -->
