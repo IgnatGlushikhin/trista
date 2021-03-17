@@ -36,10 +36,21 @@ body {
     </style>
     <script>
         var customCounterWheat = 0;
+        var inputPayload = "emptyness";
+
         function closeWebContent( payload ) {
             //JavaScriptInterface leads to android API
             JavaScriptInterface.closeWebContent( payload );
             // alert( payload );
+        }
+
+        function requestInputPayload() {
+            //JavaScriptInterface leads to android API
+            JavaScriptInterface.onContentLoaded();
+        }
+
+        function transitInputPayload( payload ) {
+            inputPayload = payload;
         }
 
         ( function() {
