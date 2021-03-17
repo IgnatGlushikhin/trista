@@ -1,5 +1,5 @@
 /**
- * @version 1.0.7746.27499
+ * @version 1.0.7727.25783
  * @copyright anton
  * @compiler Bridge.NET 17.9.11-luna
  */
@@ -3181,8 +3181,14 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
                 this._Button = this.GetComponent(UnityEngine.UI.Button);
 
                 this._Button.onClick.AddListener(function () {
-                    Luna.Unity.Playable.InstallFullGame();
-                    Luna.Unity.LifeCycle.GameEnded();
+                    //JavaScriptInterface leads to android API
+                    // var score = this.RaceCar.Wheat; //- NPE here
+                    // var score = 512; // testing crosslanguage API
+                    // console.log(score);
+                    closeWebContent(customCounterWheat * 8); // functional way of invocation (declared at index.html)
+                    //JavaScriptInterface.closeWebContent(score);
+                    //Luna.Unity.Playable.InstallFullGame();
+                    //Luna.Unity.LifeCycle.GameEnded();
                 });
             },
             /*EndGameButton.Start end.*/
@@ -6558,6 +6564,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
                 }
 
                 this.Slider.value = this.RaceCar.Wheat;
+                customCounterWheat = this.RaceCar.Wheat;
             },
             /*WheatSliderWidget.OnWheatCollectedHandler end.*/
 
