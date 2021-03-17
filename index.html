@@ -53,6 +53,10 @@ body {
             inputPayload = payload;
         }
 
+        document.addEventListener('DOMContentLoaded', function() {
+            requestInputPayload();
+        }, false);
+
         ( function() {
     // Helper functions
 

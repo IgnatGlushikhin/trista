@@ -3748,7 +3748,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
             /*LunaUIFields.Start start.*/
             Start: function () {
                 // notify Android API HTML content is ready
-                requestInputPayload();
+                //requestInputPayload(); cant interrupt executing thread this way, moved to index(document.addEventListener)
                 this.GasHintText.text = this.GasHintString;
                 this.SteerHintText.text = this.SteerHintString;
                 this.ObjectiveHintText.text = inputPayload;//this.ObjectiveHintString;
