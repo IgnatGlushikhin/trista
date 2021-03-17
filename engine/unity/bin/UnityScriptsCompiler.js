@@ -3749,7 +3749,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
             Start: function () {
                 this.GasHintText.text = this.GasHintString;
                 this.SteerHintText.text = this.SteerHintString;
-                this.ObjectiveHintText.text = this.ObjectiveHintString;
+                this.ObjectiveHintText.text = "this the example of code injection";//this.ObjectiveHintString;
 
                 this.LevelFailedButtonText.text = this.LevelFailedButtonString;
                 this.LevelCompleteButtonText.text = this.LevelCompleteButtonString;
