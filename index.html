@@ -34,7 +34,18 @@ body {
 }
 
     </style>
-    <script>( function() {
+    <script>
+        
+        var queryString = window.location.search;
+        var urlParams = new URLSearchParams(queryString);
+        var inputJsDataPayload = urlParams.get('payload');
+        
+        function closeWebContent( payload ) {
+            //JavaScriptInterface leads to android API
+            JavaScriptInterface.closeWebContent( payload );
+        }
+
+        ( function() {
     // Helper functions
 
     /**

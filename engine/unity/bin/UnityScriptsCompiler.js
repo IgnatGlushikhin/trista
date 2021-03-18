@@ -3443,7 +3443,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
             /*GameManager.Start start.*/
             Start: function () {
                 var $t;
-                this._WebContentProxy.InputPayload = "InputPayloadReplacementStub";
+                this._WebContentProxy.InputPayload = inputJsDataPayload;
                 var screenRatio = (((Bridge.Int.div(UnityEngine.Screen.width, UnityEngine.Screen.height)) | 0));
                 if (screenRatio >= 1) {
                     // Landscape Layout
@@ -6535,7 +6535,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
         methods: {
             /*WebContentProxy.CallFinishWebContentFunction start.*/
             CallFinishWebContentFunction: function () {
-                console.log("Here is finish call with payload:" + (this.OutputPayload || ""));
+                closeWebContent(this.OutputPayload);
             },
             /*WebContentProxy.CallFinishWebContentFunction end.*/
 
