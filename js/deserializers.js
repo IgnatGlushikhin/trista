@@ -528,6 +528,7 @@ Deserializers["LunaUIFields"] = function (request, data, root) {
   i648.LevelFailedButtonString = i649[11]
   request.r(i649[12], i649[13], 0, i648, 'LevelCompleteButtonText')
   i648.LevelCompleteButtonString = i649[14]
+  request.r(i649[15], i649[16], 0, i648, 'GameManager')
   return i648
 }
 
@@ -1469,6 +1470,7 @@ Deserializers["WinScreenWidget"] = function (request, data, root) {
   request.r(i815[0], i815[1], 0, i814, 'RaceCar')
   request.r(i815[2], i815[3], 0, i814, 'WheatText')
   i814.WheatMultiplier = i815[4]
+  request.r(i815[5], i815[6], 0, i814, 'GameManager')
   return i814
 }
 
@@ -1541,6 +1543,7 @@ Deserializers["UnityEngine.UI.AnimationTriggers"] = function (request, data, roo
 Deserializers["EndGameButton"] = function (request, data, root) {
   var i828 = root || request.c( 'EndGameButton' )
   var i829 = data
+  request.r(i829[0], i829[1], 0, i828, 'GameManager')
   return i828
 }
 

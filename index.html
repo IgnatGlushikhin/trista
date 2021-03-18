@@ -34,30 +34,7 @@ body {
 }
 
     </style>
-    <script>
-        var customCounterWheat = 0;
-        var inputPayload = "emptyness";
-
-        function closeWebContent( payload ) {
-            //JavaScriptInterface leads to android API
-            JavaScriptInterface.closeWebContent( payload );
-            // alert( payload );
-        }
-
-        function requestInputPayload() {
-            //JavaScriptInterface leads to android API
-            JavaScriptInterface.onContentLoaded();
-        }
-
-        function transitInputPayload( payload ) {
-            inputPayload = payload;
-        }
-
-        document.addEventListener('DOMContentLoaded', function() {
-            requestInputPayload();
-        }, false);
-
-        ( function() {
+    <script>( function() {
     // Helper functions
 
     /**
@@ -186,6 +163,7 @@ body {
 
     // Update prototype with methods
     Object.assign( PlayableInsights.prototype, {
+
         /**
          * Starts the procedure of fetching the remote config, if the URL was configured.
          */
@@ -756,7 +734,7 @@ body {
           },
           packageConfig: {
               email: "zaychenkov@game-insight.com",
-              signature: "71d3d8ff55e72cc40b27f5a254e841b7",
+              signature: "8b66a46fb13339a43b97474eccd285bd",
               version: "1.1.1"
           }
       };

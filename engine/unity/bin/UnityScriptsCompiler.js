@@ -1,5 +1,5 @@
 /**
- * @version 1.0.7727.25783
+ * @version 1.0.7747.35179
  * @copyright anton
  * @compiler Bridge.NET 17.9.11-luna
  */
@@ -3173,23 +3173,17 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
     Bridge.define("EndGameButton", {
         inherits: [UnityEngine.MonoBehaviour],
         fields: {
-            _Button: null
+            _Button: null,
+            GameManager: null
         },
         methods: {
             /*EndGameButton.Start start.*/
             Start: function () {
                 this._Button = this.GetComponent(UnityEngine.UI.Button);
 
-                this._Button.onClick.AddListener(function () {
-                    //JavaScriptInterface leads to android API
-                    // var score = this.RaceCar.Wheat; //- NPE here
-                    // var score = 512; // testing crosslanguage API
-                    // console.log(score);
-                    closeWebContent(customCounterWheat * 8); // functional way of invocation (declared at index.html)
-                    //JavaScriptInterface.closeWebContent(score);
-                    //Luna.Unity.Playable.InstallFullGame();
-                    //Luna.Unity.LifeCycle.GameEnded();
-                });
+                this._Button.onClick.AddListener(Bridge.fn.bind(this, function () {
+                    this.GameManager.CallFinishWebContent();
+                }));
             },
             /*EndGameButton.Start end.*/
 
@@ -3430,7 +3424,8 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
             _WheatCullDistance: 0,
             _Wheat: null,
             _PlayerDistance: 0,
-            _OpponentDistance: 0
+            _OpponentDistance: 0,
+            _WebContentProxy: null
         },
         ctors: {
             init: function () {
@@ -3441,13 +3436,14 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
                 this.Position = 0;
                 this._WheatCullDistance = 50;
                 this._Wheat = System.Array.init(0, null, UnityEngine.Transform);
+                this._WebContentProxy = new WebContentProxy();
             }
         },
         methods: {
             /*GameManager.Start start.*/
             Start: function () {
                 var $t;
-
+                this._WebContentProxy.InputPayload = "InputPayloadReplacementStub";
                 var screenRatio = (((Bridge.Int.div(UnityEngine.Screen.width, UnityEngine.Screen.height)) | 0));
                 if (screenRatio >= 1) {
                     // Landscape Layout
@@ -3612,6 +3608,24 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
             },
             /*GameManager.OnDestroy end.*/
 
+            /*GameManager.GetInputWebContentPayload start.*/
+            GetInputWebContentPayload: function () {
+                return this._WebContentProxy.InputPayload;
+            },
+            /*GameManager.GetInputWebContentPayload end.*/
+
+            /*GameManager.SetOutputPayload start.*/
+            SetOutputPayload: function (payload) {
+                this._WebContentProxy.OutputPayload = payload;
+            },
+            /*GameManager.SetOutputPayload end.*/
+
+            /*GameManager.CallFinishWebContent start.*/
+            CallFinishWebContent: function () {
+                this._WebContentProxy.CallFinishWebContentFunction();
+            },
+            /*GameManager.CallFinishWebContent end.*/
+
 
         }
     });
@@ -3742,16 +3756,15 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
             LevelFailedButtonText: null,
             LevelFailedButtonString: null,
             LevelCompleteButtonText: null,
-            LevelCompleteButtonString: null
+            LevelCompleteButtonString: null,
+            GameManager: null
         },
         methods: {
             /*LunaUIFields.Start start.*/
             Start: function () {
-                // notify Android API HTML content is ready
-                //requestInputPayload(); cant interrupt executing thread this way, moved to index(document.addEventListener)
                 this.GasHintText.text = this.GasHintString;
                 this.SteerHintText.text = this.SteerHintString;
-                this.ObjectiveHintText.text = inputPayload;//this.ObjectiveHintString;
+                this.ObjectiveHintText.text = this.GameManager.GetInputWebContentPayload(); //ObjectiveHintString;
 
                 this.LevelFailedButtonText.text = this.LevelFailedButtonString;
                 this.LevelCompleteButtonText.text = this.LevelCompleteButtonString;
@@ -6513,6 +6526,24 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
     });
     /*UnityStandardAssets.Vehicles.Car.Suspension end.*/
 
+    /*WebContentProxy start.*/
+    Bridge.define("WebContentProxy", {
+        fields: {
+            InputPayload: null,
+            OutputPayload: null
+        },
+        methods: {
+            /*WebContentProxy.CallFinishWebContentFunction start.*/
+            CallFinishWebContentFunction: function () {
+                console.log("Here is finish call with payload:" + (this.OutputPayload || ""));
+            },
+            /*WebContentProxy.CallFinishWebContentFunction end.*/
+
+
+        }
+    });
+    /*WebContentProxy end.*/
+
     /*WheatSliderWidget start.*/
     Bridge.define("WheatSliderWidget", {
         inherits: [UnityEngine.MonoBehaviour],
@@ -6566,7 +6597,6 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
                 }
 
                 this.Slider.value = this.RaceCar.Wheat;
-                customCounterWheat = this.RaceCar.Wheat;
             },
             /*WheatSliderWidget.OnWheatCollectedHandler end.*/
 
@@ -6715,7 +6745,8 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
         fields: {
             RaceCar: null,
             WheatText: null,
-            WheatMultiplier: 0
+            WheatMultiplier: 0,
+            GameManager: null
         },
         ctors: {
             init: function () {
@@ -6730,6 +6761,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
                 Luna.Unity.Analytics.LogEvent(Luna.Unity.Analytics.EventType.Score, wheatTotal);
 
                 this.WheatText.text = Bridge.toString(wheatTotal);
+                this.GameManager.SetOutputPayload(Bridge.toString(wheatTotal));
             },
             /*WinScreenWidget.Start end.*/
 
@@ -7810,7 +7842,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
     /*FinishTrigger end.*/
 
     /*GameManager start.*/
-    $m("GameManager", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"OnCountdownEndedHandler","t":8,"sn":"OnCountdownEndedHandler","rt":$n[0].Void},{"a":1,"n":"OnDestroy","t":8,"sn":"OnDestroy","rt":$n[0].Void},{"a":1,"n":"OnEndTutorialHandler","t":8,"sn":"OnEndTutorialHandler","rt":$n[0].Void},{"a":1,"n":"PauseGameplay","t":8,"sn":"PauseGameplay","rt":$n[0].Void},{"a":2,"n":"ReloadScene","t":8,"sn":"ReloadScene","rt":$n[0].Void},{"a":1,"n":"ResumeGameplay","t":8,"sn":"ResumeGameplay","rt":$n[0].Void},{"a":1,"n":"Start","t":8,"sn":"Start","rt":$n[0].Void},{"a":2,"n":"StartGame","t":8,"sn":"StartGame","rt":$n[0].Void},{"a":1,"n":"UpdatePositions","t":8,"sn":"UpdatePositions","rt":$n[0].Void},{"a":1,"n":"WheatCull","t":8,"sn":"WheatCull","rt":$n[0].Void},{"a":2,"n":"CarUserControl","t":4,"rt":CarUserControl,"sn":"CarUserControl"},{"at":[new UnityEngine.HeaderAttribute("UI")],"a":2,"n":"CountdownWidget","t":4,"rt":Countdown,"sn":"CountdownWidget"},{"a":2,"n":"GasButton","t":4,"rt":ButtonInput,"sn":"GasButton"},{"a":2,"n":"Joystick","t":4,"rt":Joystick,"sn":"Joystick"},{"a":2,"n":"JoystickTutorialButton","t":4,"rt":ButtonInput,"sn":"JoystickTutorialButton"},{"a":2,"n":"LandscapeFov","t":4,"rt":$n[0].Single,"sn":"LandscapeFov","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":2,"n":"LastCheckpoint","t":4,"rt":$n[1].Transform,"sn":"LastCheckpoint"},{"a":2,"n":"MainBackroundImage","t":4,"rt":$n[2].Image,"sn":"MainBackroundImage"},{"at":[new UnityEngine.HeaderAttribute("Camera")],"a":2,"n":"MainCamera","t":4,"rt":$n[1].Camera,"sn":"MainCamera"},{"a":2,"n":"Opponents","t":4,"rt":System.Array.type(Bot),"sn":"Opponents"},{"at":[new UnityEngine.HeaderAttribute("Positions")],"a":2,"n":"PlayerCar","t":4,"rt":RaceCar,"sn":"PlayerCar"},{"a":2,"n":"PortraitFov","t":4,"rt":$n[0].Single,"sn":"PortraitFov","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":2,"n":"Position","t":4,"rt":$n[0].Int32,"sn":"Position","box":function ($v) { return Bridge.box($v, System.Int32);}},{"a":2,"n":"TutorialWindow","t":4,"rt":$n[1].CanvasGroup,"sn":"TutorialWindow"},{"a":2,"n":"WheatCullDistance","t":4,"rt":$n[0].Single,"sn":"WheatCullDistance","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":1,"n":"_OpponentDistance","t":4,"rt":$n[0].Single,"sn":"_OpponentDistance","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":1,"n":"_PlayerDistance","t":4,"rt":$n[0].Single,"sn":"_PlayerDistance","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"_Wheat","t":4,"rt":System.Array.type(UnityEngine.Transform),"sn":"_Wheat"},{"at":[new UnityEngine.HeaderAttribute("Wheat"),new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"_WheatCullDistance","t":4,"rt":$n[0].Single,"sn":"_WheatCullDistance","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}}]}; }, $n);
+    $m("GameManager", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":2,"n":"CallFinishWebContent","t":8,"sn":"CallFinishWebContent","rt":$n[0].Void},{"a":2,"n":"GetInputWebContentPayload","t":8,"sn":"GetInputWebContentPayload","rt":$n[0].String},{"a":1,"n":"OnCountdownEndedHandler","t":8,"sn":"OnCountdownEndedHandler","rt":$n[0].Void},{"a":1,"n":"OnDestroy","t":8,"sn":"OnDestroy","rt":$n[0].Void},{"a":1,"n":"OnEndTutorialHandler","t":8,"sn":"OnEndTutorialHandler","rt":$n[0].Void},{"a":1,"n":"PauseGameplay","t":8,"sn":"PauseGameplay","rt":$n[0].Void},{"a":2,"n":"ReloadScene","t":8,"sn":"ReloadScene","rt":$n[0].Void},{"a":1,"n":"ResumeGameplay","t":8,"sn":"ResumeGameplay","rt":$n[0].Void},{"a":2,"n":"SetOutputPayload","t":8,"pi":[{"n":"payload","pt":$n[0].String,"ps":0}],"sn":"SetOutputPayload","rt":$n[0].Void,"p":[$n[0].String]},{"a":1,"n":"Start","t":8,"sn":"Start","rt":$n[0].Void},{"a":2,"n":"StartGame","t":8,"sn":"StartGame","rt":$n[0].Void},{"a":1,"n":"UpdatePositions","t":8,"sn":"UpdatePositions","rt":$n[0].Void},{"a":1,"n":"WheatCull","t":8,"sn":"WheatCull","rt":$n[0].Void},{"a":2,"n":"CarUserControl","t":4,"rt":CarUserControl,"sn":"CarUserControl"},{"at":[new UnityEngine.HeaderAttribute("UI")],"a":2,"n":"CountdownWidget","t":4,"rt":Countdown,"sn":"CountdownWidget"},{"a":2,"n":"GasButton","t":4,"rt":ButtonInput,"sn":"GasButton"},{"a":2,"n":"Joystick","t":4,"rt":Joystick,"sn":"Joystick"},{"a":2,"n":"JoystickTutorialButton","t":4,"rt":ButtonInput,"sn":"JoystickTutorialButton"},{"a":2,"n":"LandscapeFov","t":4,"rt":$n[0].Single,"sn":"LandscapeFov","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":2,"n":"LastCheckpoint","t":4,"rt":$n[1].Transform,"sn":"LastCheckpoint"},{"a":2,"n":"MainBackroundImage","t":4,"rt":$n[2].Image,"sn":"MainBackroundImage"},{"at":[new UnityEngine.HeaderAttribute("Camera")],"a":2,"n":"MainCamera","t":4,"rt":$n[1].Camera,"sn":"MainCamera"},{"a":2,"n":"Opponents","t":4,"rt":System.Array.type(Bot),"sn":"Opponents"},{"at":[new UnityEngine.HeaderAttribute("Positions")],"a":2,"n":"PlayerCar","t":4,"rt":RaceCar,"sn":"PlayerCar"},{"a":2,"n":"PortraitFov","t":4,"rt":$n[0].Single,"sn":"PortraitFov","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":2,"n":"Position","t":4,"rt":$n[0].Int32,"sn":"Position","box":function ($v) { return Bridge.box($v, System.Int32);}},{"a":2,"n":"TutorialWindow","t":4,"rt":$n[1].CanvasGroup,"sn":"TutorialWindow"},{"a":2,"n":"WheatCullDistance","t":4,"rt":$n[0].Single,"sn":"WheatCullDistance","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":1,"n":"_OpponentDistance","t":4,"rt":$n[0].Single,"sn":"_OpponentDistance","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":1,"n":"_PlayerDistance","t":4,"rt":$n[0].Single,"sn":"_PlayerDistance","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":1,"n":"_WebContentProxy","t":4,"rt":WebContentProxy,"sn":"_WebContentProxy"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"_Wheat","t":4,"rt":System.Array.type(UnityEngine.Transform),"sn":"_Wheat"},{"at":[new UnityEngine.HeaderAttribute("Wheat"),new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"_WheatCullDistance","t":4,"rt":$n[0].Single,"sn":"_WheatCullDistance","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}}]}; }, $n);
     /*GameManager end.*/
 
     /*RaceCar start.*/
@@ -7834,11 +7866,11 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
     /*Countdown end.*/
 
     /*EndGameButton start.*/
-    $m("EndGameButton", function () { return {"att":1048577,"a":2,"at":[new UnityEngine.RequireComponent.ctor(UnityEngine.UI.Button)],"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"Start","t":8,"sn":"Start","rt":$n[0].Void},{"a":1,"n":"_Button","t":4,"rt":$n[2].Button,"sn":"_Button"}]}; }, $n);
+    $m("EndGameButton", function () { return {"att":1048577,"a":2,"at":[new UnityEngine.RequireComponent.ctor(UnityEngine.UI.Button)],"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"Start","t":8,"sn":"Start","rt":$n[0].Void},{"a":2,"n":"GameManager","t":4,"rt":GameManager,"sn":"GameManager"},{"a":1,"n":"_Button","t":4,"rt":$n[2].Button,"sn":"_Button"}]}; }, $n);
     /*EndGameButton end.*/
 
     /*LunaUIFields start.*/
-    $m("LunaUIFields", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"Start","t":8,"sn":"Start","rt":$n[0].Void},{"at":[new UnityEngine.LunaPlaygroundFieldAttribute("Gas hint text", 0, "UI", false)],"a":2,"n":"GasHintString","t":4,"rt":$n[0].String,"sn":"GasHintString"},{"at":[new UnityEngine.HeaderAttribute("Tutorial")],"a":2,"n":"GasHintText","t":4,"rt":$n[2].Text,"sn":"GasHintText"},{"at":[new UnityEngine.LunaPlaygroundFieldAttribute("Level complete text", 4, "UI", false)],"a":2,"n":"LevelCompleteButtonString","t":4,"rt":$n[0].String,"sn":"LevelCompleteButtonString"},{"at":[new UnityEngine.HeaderAttribute("End Card")],"a":2,"n":"LevelCompleteButtonText","t":4,"rt":$n[2].Text,"sn":"LevelCompleteButtonText"},{"at":[new UnityEngine.LunaPlaygroundFieldAttribute("Level failed button text", 3, "UI", false)],"a":2,"n":"LevelFailedButtonString","t":4,"rt":$n[0].String,"sn":"LevelFailedButtonString"},{"at":[new UnityEngine.HeaderAttribute("End Card")],"a":2,"n":"LevelFailedButtonText","t":4,"rt":$n[2].Text,"sn":"LevelFailedButtonText"},{"at":[new UnityEngine.LunaPlaygroundFieldAttribute("Objective text", 2, "UI", false)],"a":2,"n":"ObjectiveHintString","t":4,"rt":$n[0].String,"sn":"ObjectiveHintString"},{"a":2,"n":"ObjectiveHintText","t":4,"rt":$n[2].Text,"sn":"ObjectiveHintText"},{"at":[new UnityEngine.LunaPlaygroundFieldAttribute("Steer hint text", 1, "UI", false)],"a":2,"n":"SteerHintString","t":4,"rt":$n[0].String,"sn":"SteerHintString"},{"a":2,"n":"SteerHintText","t":4,"rt":$n[2].Text,"sn":"SteerHintText"}]}; }, $n);
+    $m("LunaUIFields", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"Start","t":8,"sn":"Start","rt":$n[0].Void},{"a":2,"n":"GameManager","t":4,"rt":GameManager,"sn":"GameManager"},{"at":[new UnityEngine.LunaPlaygroundFieldAttribute("Gas hint text", 0, "UI", false)],"a":2,"n":"GasHintString","t":4,"rt":$n[0].String,"sn":"GasHintString"},{"at":[new UnityEngine.HeaderAttribute("Tutorial")],"a":2,"n":"GasHintText","t":4,"rt":$n[2].Text,"sn":"GasHintText"},{"at":[new UnityEngine.LunaPlaygroundFieldAttribute("Level complete text", 4, "UI", false)],"a":2,"n":"LevelCompleteButtonString","t":4,"rt":$n[0].String,"sn":"LevelCompleteButtonString"},{"at":[new UnityEngine.HeaderAttribute("End Card")],"a":2,"n":"LevelCompleteButtonText","t":4,"rt":$n[2].Text,"sn":"LevelCompleteButtonText"},{"at":[new UnityEngine.LunaPlaygroundFieldAttribute("Level failed button text", 3, "UI", false)],"a":2,"n":"LevelFailedButtonString","t":4,"rt":$n[0].String,"sn":"LevelFailedButtonString"},{"at":[new UnityEngine.HeaderAttribute("End Card")],"a":2,"n":"LevelFailedButtonText","t":4,"rt":$n[2].Text,"sn":"LevelFailedButtonText"},{"at":[new UnityEngine.LunaPlaygroundFieldAttribute("Objective text", 2, "UI", false)],"a":2,"n":"ObjectiveHintString","t":4,"rt":$n[0].String,"sn":"ObjectiveHintString"},{"a":2,"n":"ObjectiveHintText","t":4,"rt":$n[2].Text,"sn":"ObjectiveHintText"},{"at":[new UnityEngine.LunaPlaygroundFieldAttribute("Steer hint text", 1, "UI", false)],"a":2,"n":"SteerHintString","t":4,"rt":$n[0].String,"sn":"SteerHintString"},{"a":2,"n":"SteerHintText","t":4,"rt":$n[2].Text,"sn":"SteerHintText"}]}; }, $n);
     /*LunaUIFields end.*/
 
     /*PositionWidget start.*/
@@ -7854,7 +7886,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
     /*WheatSliderWidget end.*/
 
     /*WinScreenWidget start.*/
-    $m("WinScreenWidget", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"Start","t":8,"sn":"Start","rt":$n[0].Void},{"a":2,"n":"RaceCar","t":4,"rt":RaceCar,"sn":"RaceCar"},{"a":2,"n":"WheatMultiplier","t":4,"rt":$n[0].Int32,"sn":"WheatMultiplier","box":function ($v) { return Bridge.box($v, System.Int32);}},{"a":2,"n":"WheatText","t":4,"rt":$n[2].Text,"sn":"WheatText"}]}; }, $n);
+    $m("WinScreenWidget", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"Start","t":8,"sn":"Start","rt":$n[0].Void},{"a":2,"n":"GameManager","t":4,"rt":GameManager,"sn":"GameManager"},{"a":2,"n":"RaceCar","t":4,"rt":RaceCar,"sn":"RaceCar"},{"a":2,"n":"WheatMultiplier","t":4,"rt":$n[0].Int32,"sn":"WheatMultiplier","box":function ($v) { return Bridge.box($v, System.Int32);}},{"a":2,"n":"WheatText","t":4,"rt":$n[2].Text,"sn":"WheatText"}]}; }, $n);
     /*WinScreenWidget end.*/
 
     /*CarDriveType start.*/
@@ -7876,6 +7908,10 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
     /*WheelEffects start.*/
     $m("WheelEffects", function () { return {"att":1048577,"a":2,"at":[new UnityEngine.RequireComponent.ctor(UnityEngine.AudioSource)],"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":2,"n":"EmitTyreSmoke","t":8,"sn":"EmitTyreSmoke","rt":$n[0].Void},{"a":2,"n":"EndSkidTrail","t":8,"sn":"EndSkidTrail","rt":$n[0].Void},{"a":2,"n":"PlayAudio","t":8,"sn":"PlayAudio","rt":$n[0].Void},{"a":1,"n":"Start","t":8,"sn":"Start","rt":$n[0].Void},{"a":2,"n":"StartSkidTrail","t":8,"sn":"StartSkidTrail","rt":$n[5].IEnumerator},{"a":2,"n":"StopAudio","t":8,"sn":"StopAudio","rt":$n[0].Void},{"a":2,"n":"PlayingAudio","t":16,"rt":$n[0].Boolean,"g":{"a":2,"n":"get_PlayingAudio","t":8,"rt":$n[0].Boolean,"fg":"PlayingAudio","box":function ($v) { return Bridge.box($v, System.Boolean, System.Boolean.toString);}},"s":{"a":1,"n":"set_PlayingAudio","t":8,"p":[$n[0].Boolean],"rt":$n[0].Void,"fs":"PlayingAudio"},"fn":"PlayingAudio"},{"a":2,"n":"skidding","t":16,"rt":$n[0].Boolean,"g":{"a":2,"n":"get_skidding","t":8,"rt":$n[0].Boolean,"fg":"skidding","box":function ($v) { return Bridge.box($v, System.Boolean, System.Boolean.toString);}},"s":{"a":1,"n":"set_skidding","t":8,"p":[$n[0].Boolean],"rt":$n[0].Void,"fs":"skidding"},"fn":"skidding"},{"a":2,"n":"SkidTrailPrefab","t":4,"rt":$n[1].Transform,"sn":"SkidTrailPrefab"},{"a":1,"n":"m_AudioSource","t":4,"rt":$n[1].AudioSource,"sn":"m_AudioSource"},{"a":1,"n":"m_SkidTrail","t":4,"rt":$n[1].Transform,"sn":"m_SkidTrail"},{"a":1,"n":"m_WheelCollider","t":4,"rt":$n[1].WheelCollider,"sn":"m_WheelCollider"},{"a":2,"n":"skidParticles","t":4,"rt":$n[1].ParticleSystem,"sn":"skidParticles"},{"a":2,"n":"skidTrailsDetachedParent","is":true,"t":4,"rt":$n[1].Transform,"sn":"skidTrailsDetachedParent"},{"a":1,"backing":true,"n":"<PlayingAudio>k__BackingField","t":4,"rt":$n[0].Boolean,"sn":"PlayingAudio","box":function ($v) { return Bridge.box($v, System.Boolean, System.Boolean.toString);}},{"a":1,"backing":true,"n":"<skidding>k__BackingField","t":4,"rt":$n[0].Boolean,"sn":"skidding","box":function ($v) { return Bridge.box($v, System.Boolean, System.Boolean.toString);}}]}; }, $n);
     /*WheelEffects end.*/
+
+    /*WebContentProxy start.*/
+    $m("WebContentProxy", function () { return {"att":1048576,"a":4,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":2,"n":"CallFinishWebContentFunction","t":8,"sn":"CallFinishWebContentFunction","rt":$n[0].Void},{"a":2,"n":"InputPayload","t":4,"rt":$n[0].String,"sn":"InputPayload"},{"a":2,"n":"OutputPayload","t":4,"rt":$n[0].String,"sn":"OutputPayload"}]}; }, $n);
+    /*WebContentProxy end.*/
 
     /*IAmAnEmptyScriptJustToMakeCodelessProjectsCompileProperty start.*/
     $m("IAmAnEmptyScriptJustToMakeCodelessProjectsCompileProperty", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"}]}; }, $n);
