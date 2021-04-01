@@ -1,1 +1,1 @@
-{"requires":["DOTween"]}
+{"requires":["DOTween","Newtonsoft.Json"]}
