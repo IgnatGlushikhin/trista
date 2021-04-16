@@ -15835,7 +15835,7 @@ lineInfo.length =                                 ($t19 = this.m_textInfo.charac
              * @return  {UnityEngine.GameObject}                The created drop down list gameobject.
              */
             CreateDropdownList: function (template) {
-                return UnityEngine.Object.Instantiate$4(UnityEngine.GameObject, template);
+                return UnityEngine.Object.Instantiate(UnityEngine.GameObject, template);
             },
             /*TMPro.TMP_Dropdown.CreateDropdownList end.*/
 
@@ -15867,7 +15867,7 @@ lineInfo.length =                                 ($t19 = this.m_textInfo.charac
              * @return  {TMPro.TMP_Dropdown.DropdownItem}                    The created dropdown item component
              */
             CreateItem: function (itemTemplate) {
-                return UnityEngine.Object.Instantiate$4(TMPro.TMP_Dropdown.DropdownItem, itemTemplate);
+                return UnityEngine.Object.Instantiate(TMPro.TMP_Dropdown.DropdownItem, itemTemplate);
             },
             /*TMPro.TMP_Dropdown.CreateItem end.*/
 

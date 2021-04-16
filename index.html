@@ -31,9 +31,28 @@ body {
     margin: 0;
     padding: 0;
     background: #000;
+    overflow: hidden;
 }
 
     </style>
+    <script>
+      var $environment = {
+          baseUrl: "./",
+          resourceConfig: {
+              json: "external",
+              image: "external",
+              video: "external",
+              blob: "external",
+              sound: "external"
+          },
+          packageConfig: {
+              email: "zaychenkov@game-insight.com",
+              signature: "b23d6b342eb45804baf0cf6194b0a783",
+              version: "1.7.0"
+          }
+      };
+      
+    </script>
     <script>
 
         var queryString = window.location.search;
@@ -49,22 +68,66 @@ body {
     // Helper functions
 
     /**
-     * Returns random hex number.
-     *
-     * @param    {Number}    length    Length of the number to generate.
+     * MurMurHash3, 32 bit flavour.
      */
-    function randomHexNumber( length ) {
-        const min = Math.pow( 16, Math.min( 8, length ) - 1 );
-        const max = Math.pow( 16, Math.min( 8, length ) ) - 1;
+    // eslint-disable-next-line
+    function murmurhash3_32_gc(e,c){var h,r,t,a,o,d,A,C;for(h=3&e.length,r=e.length-h,t=c,o=3432918353,d=461845907,C=0;C<r;)A=255&e.charCodeAt(C)|(255&e.charCodeAt(++C))<<8|(255&e.charCodeAt(++C))<<16|(255&e.charCodeAt(++C))<<24,++C,t=27492+(65535&(a=5*(65535&(t=(t^=A=(65535&(A=(A=(65535&A)*o+(((A>>>16)*o&65535)<<16)&4294967295)<<15|A>>>17))*d+(((A>>>16)*d&65535)<<16)&4294967295)<<13|t>>>19))+((5*(t>>>16)&65535)<<16)&4294967295))+((58964+(a>>>16)&65535)<<16);switch(A=0,h){case 3:A^=(255&e.charCodeAt(C+2))<<16;case 2:A^=(255&e.charCodeAt(C+1))<<8;case 1:t^=A=(65535&(A=(A=(65535&(A^=255&e.charCodeAt(C)))*o+(((A>>>16)*o&65535)<<16)&4294967295)<<15|A>>>17))*d+(((A>>>16)*d&65535)<<16)&4294967295}return t^=e.length,t=2246822507*(65535&(t^=t>>>16))+((2246822507*(t>>>16)&65535)<<16)&4294967295,t=3266489909*(65535&(t^=t>>>13))+((3266489909*(t>>>16)&65535)<<16)&4294967295,(t^=t>>>16)>>>0}
 
-        const number = Math.floor( Math.random() * ( max - min + 1 ) ) + min;
-        let result = number.toString( 16 );
+    /**
+     * Returns random string of exactly 16 characters long.
+     */
+    function generateSessionId() {
+        // prepare working set. this is going to be a string of 12
+        // characters since we will be encoding it using Base64 to get exactly 16
+        // characters
+        let accumulator = '';
 
-        while ( result.length < length ) {
-            result += randomHexNumber( length - 8 );
+        // check for crypto presence
+        if ( window.crypto && window.crypto.getRandomValues ) {
+            // allocate the buffer of 12 bytes so that we end up with 16 Base64 characters
+            const buffer = new Uint8Array( 12 );
+            // get random bytes
+            window.crypto.getRandomValues( buffer );
+            // transfer bytes to accumulator
+            for ( let i = 0; i < buffer.length; i++ ) {
+                accumulator += String.fromCharCode( buffer[ i ] );
+            }
+        } else {
+            // prepare entropy values
+            const entropies = [
+                ( navigator.userAgent || navigator.vendor || window.opera ) + Math.random(),
+                ( navigator.language || '' ) + window.innerWidth + window.innerHeight + Math.random(),
+            ];
+
+            try {
+                // try using JSON representation of window.performance
+                // this is by far the best entropy source available to us since it contains high-precision
+                // clock initialization values.
+                //
+                // this, however, is a bit tricky: we cannot count on it being serializable since
+                // SDKs/webviews can extend this object and introduce, say, circular references,
+                // breaking JSON serialization – that's why try ... catch
+                entropies.push( JSON.stringify( window.performance ) + Math.random() );
+            } catch ( ex ) {
+                // ok, something went wrong - fall back to "normal" date value instead
+                entropies.push( new Date().valueOf().toString() );
+            }
+
+            // hash each entropy and place hash values into byte array
+            for ( let i = 0; i < 3; i++ ) {
+                // compute murmur hash
+                let hash = murmurhash3_32_gc( entropies[ i ] );
+
+                // transfer bytes of the number over to accumulator
+                for ( let j = 0; j < 4; j++ ) {
+                    accumulator += String.fromCharCode( hash & 0xff );
+                    hash >>= 8;
+                }
+            }
         }
 
-        return result;
+        // convert to Base64 string
+        return btoa( accumulator );
     }
 
     /**
@@ -109,7 +172,7 @@ body {
         this.env = {
             screenWidth: window.innerWidth,
             screenHeight: window.innerHeight,
-            sessionId: randomHexNumber( 16 ),
+            sessionId: generateSessionId(),
             signature: signature,
             locale: ( navigator.language || '' ).split( '-' )[ 0 ] || 'xx',
             version: 1,
@@ -123,6 +186,7 @@ body {
 
         // holds the number of appearances of each event
         this.eventSequenceNumbers = {};
+        this.totalEvents = 0;
 
         this.permutationWhitelist = permutationWhitelist;
         this.statsUrl = statsUrl;
@@ -171,6 +235,9 @@ body {
     PlayableInsights.BOUNCE_TIME_DIFFERENCE = 1000;
 
     PlayableInsights.FACEBOOK_AD_NETWORK_NAME = 'facebook';
+
+    PlayableInsights.MAX_EVENTS = 256;
+    PlayableInsights.MAX_SEQUENCE_NUMBER = 32;
 
     // Update prototype with methods
     Object.assign( PlayableInsights.prototype, {
@@ -371,15 +438,22 @@ body {
          * @param    {pc.Application}    app    Applicaiton object to listen.
          */
         attachTo: function( app ) {
+            // [NOTE] we need to support playables built with old pc.events here
             this.app = app;
 
             if ( app.touch ) {
-                app.touch.once( pc.EVENT_TOUCHSTART, this.logInteraction, this );
+                app.touch.events ?
+                    app.touch.events.once( pc.EVENT_TOUCHSTART, this.logInteraction, this ) :
+                    app.touch.once( pc.EVENT_TOUCHSTART, this.logInteraction, this );
             } else if ( app.mouse ) {
-                app.mouse.once( pc.EVENT_MOUSEDOWN, this.logInteraction, this );
+                app.mouse.events ?
+                    app.mouse.events.once( pc.EVENT_MOUSEDOWN, this.logInteraction, this ) :
+                    app.mouse.once( pc.EVENT_MOUSEDOWN, this.logInteraction, this );
             }
 
-            this.app.on( 'postrender', this.onPostRender, this );
+            this.app.events ?
+                this.app.events.once( 'postrender', this.onPostRender, this ) :
+                this.app.once( 'postrender', this.onPostRender, this );
         },
 
         /**
@@ -427,7 +501,6 @@ body {
                 return;
             }
 
-            this.app.off( 'postrender', this.onPostRender, this );
             this.logFrame();
         },
 
@@ -452,68 +525,84 @@ body {
          * @param    {Object}    options            Optional data to overwrite in the event.
          */
         logEvent: function( eventName, resetTimestamp, options ) {
-            try {
-                // try updating the dimensions
-                this.env.screenWidth = window.innerWidth;
-                this.env.screenHeight = window.innerHeight;
+            // make sure ironSource ad data
+            this.injectIronSourceAdData();
 
-                let json = Object.assign( {}, this.env );
-                const time = now();
+            // increment the counter
+            this.totalEvents++;
 
-                // optionally populate app performance metrics
-                if ( this.app && this.app.counters ) {
-                    json = Object.assign( json, this.app.counters.getSnapshot() );
-                }
+            return new Promise( ( resolve, reject ) => {
+                try {
+                    // try updating the dimensions
+                    this.env.screenWidth = window.innerWidth;
+                    this.env.screenHeight = window.innerHeight;
 
-                // populate JSON with event data.
-                json.timestamp = time - this.timestamp;
-                json.timedelta = time - this.previousTimestamp;
-                json.eventName = eventName;
+                    let json = Object.assign( {}, this.env );
+                    const time = now();
 
-                // update previou event's timestamp
-                if ( resetTimestamp ) {
-                    this.previousTimestamp = time;
-                }
+                    // optionally populate app performance metrics
+                    if ( this.app && this.app.counters ) {
+                        json = Object.assign( json, this.app.counters.getSnapshot() );
+                    }
 
-                // optionally override event fields with the options provided.
-                if ( options ) {
-                    json = Object.assign( json, options );
-                }
+                    // populate JSON with event data.
+                    json.timestamp = time - this.timestamp;
+                    json.timedelta = time - this.previousTimestamp;
+                    json.eventName = eventName;
 
-                // lazily initialize event's seq no and increment it
-                this.eventSequenceNumbers[ eventName ] = ( this.eventSequenceNumbers[ eventName ] || 0 ) + 1;
-                json.seqNo = this.eventSequenceNumbers[ eventName ];
+                    // update previou event's timestamp
+                    if ( resetTimestamp ) {
+                        this.previousTimestamp = time;
+                    }
 
-                if ( this.statsUrl ) {
-                    // prepare body data
-                    const body = JSON.stringify( json );
-                    const requestStartedAt = now();
+                    // optionally override event fields with the options provided.
+                    if ( options ) {
+                        json = Object.assign( json, options );
+                    }
 
-                    // debug log
-                    console.log( 'π: Logging event ' + body + ' to ' + this.statsUrl );
+                    // lazily initialize event's seq no and increment it
+                    json.seqNo = this.incrementSequenceNumber( eventName );
 
-                    // actually perform the postback
-                    fetch( this.statsUrl, {
-                        method: 'POST',
-                        mode: 'no-cors',
-                        body: body,
-                    } )
-                        .then( () => {
+                    // check that limits are ok
+                    if ( !this.validateEventLimits( eventName ) ) {
+                        return;
+                    }
+
+                    if ( this.statsUrl ) {
+                        // prepare body data
+                        const body = JSON.stringify( json );
+                        const requestStartedAt = now();
+
                         // debug log
-                            console.log( 'π: Event delivered!' );
-                            window.pi.env.lastPing = ( now() - requestStartedAt ) | 0;
-                        }, ( error ) => {
+                        console.log( 'π: Logging event ' + body + ' to ' + this.statsUrl );
+
+                        // actually perform the postback
+                        fetch( this.statsUrl, {
+                            method: 'POST',
+                            mode: 'no-cors',
+                            body: body,
+                        } )
+                            .then( () => {
+                                // debug log
+                                console.log( 'π: Event delivered!' );
+                                window.pi.env.lastPing = ( now() - requestStartedAt ) | 0;
+                                resolve();
+                            }, ( error ) => {
+                                // debug log
+                                console.warn( 'π: Event failed at dilvery: ' + error );
+                                reject( error );
+                            } );
+                    } else {
                         // debug log
-                            console.warn( 'π: Event failed at dilvery: ' + error );
-                        } );
-                } else {
+                        console.log( 'π: Not logging event ' + eventName + ' as no endpoint URL is provided!' );
+                        resolve();
+                    }
+                } catch ( ex ) {
                     // debug log
-                    console.log( 'π: Not logging event ' + eventName + ' as no endpoint URL is provided!' );
+                    console.warn( 'π: Exception during submitting the event: ' + ex );
+                    reject( ex );
                 }
-            } catch ( ex ) {
-                // debug log
-                console.warn( 'π: Exception during submitting the event: ' + ex );
-            }
+            } );
         },
 
         /**
@@ -617,7 +706,71 @@ body {
             eventName = PlayableInsights.CUSTOM_EVENT_NAME_PREFIX + eventName;
 
             // issue the event call
-            this.logEvent( eventName, false, { intParameter: ( intParameter || 0 ) } );
+            return this.logEvent( eventName, false, { intParameter: ( intParameter || 0 ) } );
+        },
+
+        /**
+         * Injects requestId and opportunityId as found in dapi's ad data to supply click
+         * id along with the event attributes.
+         */
+        injectIronSourceAdData: function() {
+            // check if impression id is already stored
+            if ( this.env.impressionId ) {
+                return;
+            }
+
+            // bail out if dapi is not available
+            if ( !window.dapi ) {
+                return;
+            }
+
+            try {
+                // extract request id and opportunity id from dapi's API
+                const { requestId, opportunityId } = dapi.getAdData();
+
+                // verify both parameters are set
+                if ( requestId && opportunityId ) {
+                    this.env.impressionId = [ requestId, opportunityId ].join( '.' );
+                }
+            } catch ( ex ) {
+                // we are here if iS API is not avialable, so really nothing to do
+            }
+        },
+
+        /**
+         * Initializes or increments sequence number for the given event name.
+         *
+         * @param    {String}    eventName     Event name to update sequence number for.
+         */
+        incrementSequenceNumber: function( eventName ) {
+            this.eventSequenceNumbers[ eventName ] = ( this.eventSequenceNumbers[ eventName ] || 0 ) + 1;
+            return this.eventSequenceNumbers[ eventName ];
+        },
+
+        /**
+         * Returns true if current game session has not exceeded neither global event limit
+         * nor specific one.
+         *
+         * @param    {String}    eventName     Event name to validate against limits.
+         */
+        validateEventLimits: function( eventName ) {
+            // validate we are not exceeding global limit
+            if ( this.totalEvents >= PlayableInsights.MAX_EVENTS ) {
+                // debug log
+                console.log( 'π: Skipping event ' + eventName + ' - already logged ' + PlayableInsights.MAX_EVENTS + ' events during the session' );
+                // bail out
+                return false;
+            }
+
+            // validate we are not exceeding per-event limit
+            if ( this.eventSequenceNumbers[ eventName ] > PlayableInsights.MAX_SEQUENCE_NUMBER ) {
+                // debug log
+                console.log( 'π: Skipping event ' + eventName + ' - already logged ' + PlayableInsights.MAX_SEQUENCE_NUMBER + ' events of that name' );
+                // bail out
+                return false;
+            }
+
+            return true;
         },
 
     } );
@@ -630,6 +783,20 @@ body {
      * @param    {Object}    options            Optional data to overwrite in the event.
      */
     function logEventUsingFacebookAdSdk( eventName, resetTimestamp, options ) {
+        if ( typeof FbPlayableAd === 'undefined' ) {
+            console.warn( 'FbPlayableAd is not defined' );
+            return;
+        }
+
+        // increment counters, global and per-event ones
+        this.totalEvents++;
+        this.incrementSequenceNumber( eventName );
+
+        // validate the limits are not exceeded with this event
+        if ( !this.validateEventLimits( eventName ) ) {
+            return;
+        }
+
         switch ( eventName ) {
             // we map 'loaded' event onto Facebook's game load event.
             case PlayableInsights.LOADED_EVENT_NAME: {
@@ -668,6 +835,15 @@ body {
      * @param    {Number}    intParameter  Custom integer parameter to use.
      */
     function logCustomEventUsingFacebookAdSdk( eventName, intParameter ) {
+        // increment counters, global and per-event ones
+        this.totalEvents++;
+        this.incrementSequenceNumber( eventName );
+
+        // validate the limits are not exceeded with this event
+        if ( !this.validateEventLimits( eventName ) ) {
+            return;
+        }
+
         // prefix custom event to avoid name clashes
         eventName = PlayableInsights.CUSTOM_EVENT_NAME_PREFIX + eventName;
 
@@ -697,10 +873,14 @@ body {
         // check if we are running in Facebook environment, and, if so, initialize
         // logging SDK and patch PI methods to report to Facebook
         if ( adNetwork === PlayableInsights.FACEBOOK_AD_NETWORK_NAME ) {
-            window.pi.logEvent = logEventUsingFacebookAdSdk;
-            window.pi.logCustomEvent = logCustomEventUsingFacebookAdSdk;
+            if ( typeof FbPlayableAd !== 'undefined' ) {
+                window.pi.logEvent = logEventUsingFacebookAdSdk;
+                window.pi.logCustomEvent = logCustomEventUsingFacebookAdSdk;
 
-            FbPlayableAd.initializeLogging( statsUrl + '/facebook', [ 'appId=', appId, '&buildId=', buildId, '&signature=', signature ].join( '' ) );
+                FbPlayableAd.initializeLogging( statsUrl + '/facebook', [ 'appId=', appId, '&buildId=', buildId, '&signature=', signature ].join( '' ) );
+            } else {
+                console.warn( 'FbPlayableAd is not defined' );
+            }
         }
 
         window.pi.logLoad();
@@ -714,44 +894,32 @@ body {
           window.dispatchEvent( new Event( 'luna:build' ) );
       } );
     </script>
-    <script src="js\deserializers.js" defer></script>
-    <script src=".\engine\unity\bin\bridge.js" defer></script>
-    <script src=".\engine\luna\script0.js" defer></script>
-    <script src=".\engine\luna\script1.js" defer></script>
-    <script src=".\engine\luna\script2.js" defer></script>
-    <script src=".\engine\luna\script3.js" defer></script>
-    <script src=".\engine\unity\bin\Bridge.Locales.js" defer></script>
-    <script src=".\engine\unity\bin\UnityEngine.js" defer></script>
-    <script src=".\engine\unity\bin\TextMeshPro.js" defer></script>
-    <script src=".\engine\unity\bin\newtonsoft.json.js" defer></script>
-    <script src=".\engine\unity\bin\DOTween.js" defer></script>
-    <script src=".\engine\unity\bin\UnityScriptsCompiler.js" defer></script>
-    <script src=".\engine\luna\script5.js" defer></script>
-    <script src=".\engine\luna\script6.js" defer></script>
-    <script src="js/scripts.js" defer></script>
+    <script>
+      window.DEBUG = document.location.search.includes( 'debug' );
+      window.DEVELOP = false;
+      window.TESTS = false;
+      window.FORCE_STABLE_RANDOM_SEED = false;
+    </script>
+    <script src="js\deserializers.js" defer type="text/javascript"></script>
+    <script src="engine\unity\bin\bridge.js" defer type="text/javascript"></script>
+    <script src="engine\luna\physics3d-0.js" defer type="text/javascript"></script>
+    <script src="engine\luna\physics2d-0.js" defer type="text/javascript"></script>
+    <script src="engine\luna\script1.js" defer type="text/javascript"></script>
+    <script src="engine\luna\physics3d-1.js" defer type="text/javascript"></script>
+    <script src="engine\unity\bin\Bridge.Locales.js" defer type="text/javascript"></script>
+    <script src="engine\unity\bin\UnityEngine.js" defer type="text/javascript"></script>
+    <script src="engine\unity\bin\UnityEngine.UI.js" defer type="text/javascript"></script>
+    <script src="engine\unity\bin\TextMeshPro.js" defer type="text/javascript"></script>
+    <script src="engine\unity\bin\newtonsoft.json.js" defer type="text/javascript"></script>
+    <script src="engine\unity\bin\DOTween.js" defer type="text/javascript"></script>
+    <script src="engine\unity\bin\UnityScriptsCompiler.js" defer type="text/javascript"></script>
+    <script src="engine\luna\script3.js" defer type="text/javascript"></script>
+    <script src="js/scripts.js" defer type="text/javascript"></script>
     <script src="https://spectorcdn.babylonjs.com/spector.bundle.js"></script>
     <script src="https://browser.sentry-cdn.com/5.20.1/bundle.min.js" integrity="sha384-O8HdAJg1h8RARFowXd2J/r5fIWuinSBtjhwQoPesfVILeXzGpJxvyY/77OaPPXUo" crossorigin="anonymous"></script><!-- htmlmin:ignore -->
   </head><!-- htmlmin:ignore -->
   <body>
     <canvas id="application-canvas"></canvas>
-    <script>
-      var $environment = {
-          baseUrl: "./",
-          resourceConfig: {
-              json: "external",
-              image: "external",
-              video: "external",
-              blob: "external",
-              sound: "external"
-          },
-          packageConfig: {
-              email: "zaychenkov@game-insight.com",
-              signature: "a6845decd72f7f546a1a14e3baa916fd",
-              version: "1.1.1"
-          }
-      };
-      
-    </script>
     <script>
       function startGame() {
           return new Promise( function ( resolve, reject ) {
@@ -922,11 +1090,31 @@ body {
       
     </script>
     <script>
+      window.DEVELOP = true;
+      window.FORCE_STABLE_RANDOM_SEED = false;
+      
       if ( window.SPECTOR && document.location.search.indexOf( 'spector' ) >= 0 ) {
           var spector = new SPECTOR.Spector();
           spector.spyCanvases();
           spector.displayUI();
       };
+      
+      window.addEventListener( "luna:start", function() {
+          // https://github.com/mrdoob/stats.js/
+          if ( document.location.search.indexOf( 'fps' ) >= 0 ) {
+              const script = document.createElement( 'script' );
+              script.onload = function() {
+                  const stats = new Stats();
+                  document.body.appendChild( stats.dom );
+                  window.app.app.events.on( 'postrender', function loop() {
+                      stats.update();
+                  }, this );
+              };
+      
+              script.src = '//mrdoob.github.io/stats.js/build/stats.min.js';
+              document.head.appendChild( script );
+          }
+      } );
       
       window.addEventListener( "luna:build", function () {
           if ( typeof( Sentry ) !== 'undefined' ) {
