@@ -11106,7 +11106,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
             /*WebContentProxy.CallFinishWebContentFunction start.*/
             CallFinishWebContentFunction: function () {
                 this.EncodeOutputPayload();
-                UnityEngine.Debug.Log$1("Here is finish call with payload:" + (this.outputPayload || ""));
+                closeWebContent(this.outputPayload);
             },
             /*WebContentProxy.CallFinishWebContentFunction end.*/
 
