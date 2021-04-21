@@ -1,5 +1,5 @@
 /**
- * @version 1.0.7781.42226
+ * @version 1.0.7781.42521
  * @copyright anton
  * @compiler Bridge.NET 17.9.11-luna
  */
@@ -4360,7 +4360,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
             /*GameManager.Awake start.*/
             Awake: function () {
                 var $t;
-                this._WebContentProxy.inputPayload = inputJsDataPayload;
+                this._WebContentProxy.inputPayload = "InputPayloadReplacementStub";
                 this._WebContentProxy.DecodeInputPayload();
 
                 var trackIndex = this.GetInputProperties().trackIndex;
@@ -11308,7 +11308,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
             /*WebContentProxy.CallFinishWebContentFunction start.*/
             CallFinishWebContentFunction: function () {
                 this.EncodeOutputPayload();
-                closeWebContent(this.outputPayload);
+                UnityEngine.Debug.Log$1("Here is finish call with payload:" + (this.outputPayload || ""));
             },
             /*WebContentProxy.CallFinishWebContentFunction end.*/
 
