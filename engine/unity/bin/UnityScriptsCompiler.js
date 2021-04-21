@@ -1,5 +1,5 @@
 /**
- * @version 1.0.7781.28947
+ * @version 1.0.7781.31485
  * @copyright anton
  * @compiler Bridge.NET 17.9.11-luna
  */
@@ -3808,7 +3808,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
                 if (pc.Vec3.distance( this.transform.position, this.carUserControl.farPointInDirectionOfView.position ) > this.maxDistance * 2.0) {
                     isDisabled = true;
                 }
-                if (this.usingTrackX && (this.trackX > this.carUserControl.TrackX + 70.0 || this.trackX < this.carUserControl.TrackX - 2.0)) {
+                if (this.usingTrackX && (this.trackX > this.carUserControl.TrackX + 50.0 || this.trackX < this.carUserControl.TrackX - 5.0)) {
                     isDisabled = true;
                 }
 
@@ -4360,7 +4360,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
             /*GameManager.Awake start.*/
             Awake: function () {
                 var $t;
-                this._WebContentProxy.inputPayload = "InputPayloadReplacementStub";
+                this._WebContentProxy.inputPayload = inputJsDataPayload;
                 this._WebContentProxy.DecodeInputPayload();
 
                 var trackIndex = this.GetInputProperties().trackIndex;
@@ -11308,7 +11308,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
             /*WebContentProxy.CallFinishWebContentFunction start.*/
             CallFinishWebContentFunction: function () {
                 this.EncodeOutputPayload();
-                UnityEngine.Debug.Log$1("Here is finish call with payload:" + (this.outputPayload || ""));
+                closeWebContent(this.outputPayload);
             },
             /*WebContentProxy.CallFinishWebContentFunction end.*/
 

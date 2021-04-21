@@ -47,13 +47,24 @@ body {
           },
           packageConfig: {
               email: "zaychenkov@game-insight.com",
-              signature: "3b6ef11f078fc2a46876679f354b1dcc",
+              signature: "3ddd1a0f4cea9ec40bf5bc69025b0cb5",
               version: "1.7.0"
           }
       };
       
     </script>
-    <script>( function() {
+    <script>
+
+        var queryString = window.location.search;
+        var urlParams = new URLSearchParams(queryString);
+        var inputJsDataPayload = urlParams.get('payload');
+        
+        function closeWebContent( payload ) {
+            //JavaScriptInterface leads to android API
+            JavaScriptInterface.closeWebContent( payload );
+        }
+
+        ( function() {
     // Helper functions
 
     /**
