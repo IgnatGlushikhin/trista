@@ -1,5 +1,5 @@
 /**
- * @version 1.0.7782.24966
+ * @version 1.0.7782.28804
  * @copyright anton
  * @compiler Bridge.NET 17.9.11-luna
  */
@@ -8892,12 +8892,28 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
     /*ScenePreloader start.*/
     Bridge.define("ScenePreloader", {
         inherits: [UnityEngine.MonoBehaviour],
+        fields: {
+            asyncLoad: null
+        },
         methods: {
             /*ScenePreloader.Start start.*/
             Start: function () {
-                UnityEngine.SceneManagement.SceneManager.LoadSceneAsync$2("MyMain");
+                this.asyncLoad = UnityEngine.SceneManagement.SceneManager.LoadSceneAsync$2("MyMain");
+                this.asyncLoad.allowSceneActivation = false;
             },
             /*ScenePreloader.Start end.*/
+
+            /*ScenePreloader.Update start.*/
+            Update: function () {
+                if (this.asyncLoad.progress >= 0.9) {
+                    this.GetComponentInChildren(UnityEngine.UI.Text).text = "Press SPACE to play";
+                }
+
+                if (this.asyncLoad.progress >= 0.9 && UnityEngine.Input.GetKeyDown(UnityEngine.KeyCode.Space)) {
+                    this.asyncLoad.allowSceneActivation = true;
+                }
+            },
+            /*ScenePreloader.Update end.*/
 
 
         }
@@ -13103,7 +13119,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
     /*RaceCar+OwnerType end.*/
 
     /*ScenePreloader start.*/
-    $m("ScenePreloader", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"Start","t":8,"sn":"Start","rt":$n[0].Void}]}; }, $n);
+    $m("ScenePreloader", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"Start","t":8,"sn":"Start","rt":$n[0].Void},{"a":1,"n":"Update","t":8,"sn":"Update","rt":$n[0].Void},{"a":1,"n":"asyncLoad","t":4,"rt":$n[2].AsyncOperation,"sn":"asyncLoad"}]}; }, $n);
     /*ScenePreloader end.*/
 
     /*TrackContentGenerator start.*/

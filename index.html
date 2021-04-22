@@ -47,7 +47,7 @@ body {
           },
           packageConfig: {
               email: "zaychenkov@game-insight.com",
-              signature: "da66fcd2d65af994ba14c77c2d3d15df",
+              signature: "965f8a3265785c84d982db3921d47c4a",
               version: "1.7.0"
           }
       };
@@ -917,17 +917,8 @@ body {
     <script src="js/scripts.js" defer type="text/javascript"></script>
     <script src="https://spectorcdn.babylonjs.com/spector.bundle.js"></script>
     <script src="https://browser.sentry-cdn.com/5.20.1/bundle.min.js" integrity="sha384-O8HdAJg1h8RARFowXd2J/r5fIWuinSBtjhwQoPesfVILeXzGpJxvyY/77OaPPXUo" crossorigin="anonymous"></script><!-- htmlmin:ignore -->
-	<style>
-	  div {
-		padding: 20px;
-		margin-top: 40%;
-	  }
-	</style>
   </head><!-- htmlmin:ignore -->
   <body>
-    <div id="application-preloader">
-     <center><p><font size="32" color="white">Loading...</font></p></center>
-	</div>
     <canvas id="application-canvas"></canvas>
     <script>
       function startGame() {
@@ -939,10 +930,8 @@ body {
                   window.$environment,
                   new LunaUnity.Application.StartupScene( "-1", "LoadingScene" )
               );
-			  document.getElementById( "application-canvas" ).visible = false
       
               window.app.StartWithJSCallback( function() {
-			      document.getElementById( "application-canvas" ).visible = true
                   var preloader = document.getElementById( "application-preloader" );
       
                   if ( preloader != null ) {
