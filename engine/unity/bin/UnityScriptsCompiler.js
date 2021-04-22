@@ -1,5 +1,5 @@
 /**
- * @version 1.0.7782.21171
+ * @version 1.0.7782.24966
  * @copyright anton
  * @compiler Bridge.NET 17.9.11-luna
  */
@@ -1581,13 +1581,10 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
                 }
 
                 var distanceDelta = UnityEngine.Time.deltaTime * this.labSpeed;
-                this.mCar.RotateWheels(this.labTrackProgress, this.isTurningLeft, this.isTurningRight);
-
                 this.labTrackProgress += distanceDelta;
-                var labCurrentPoint = this.pathCreator.path.GetPointAtDistance(this.labTrackProgress);
+
+                var labCurrentPoint = this.pathCreator.GetPos(this.labTrackProgress, this.labRightOffset);
                 var labForwardNormalized = this.pathCreator.path.GetDirectionAtDistance(this.labTrackProgress);
-                var labRightNormalized = new pc.Vec3().cross( labForwardNormalized, pc.Vec3.UP.clone() ).clone().normalize().$clone().scale( -1 );
-                labCurrentPoint = labCurrentPoint.$clone().add( labRightNormalized.$clone().scale( this.labRightOffset ) );
 
                 var labForwardNormalizedAndTurned = new pc.Quat().setFromEulerAngles_Unity( 0, this.turningAngle, 0 ).transformVector( labForwardNormalized );
                 this.mCar.transform.position = new pc.Vec3( labCurrentPoint.x, this.mCar.transform.position.y, labCurrentPoint.z );
@@ -1597,6 +1594,8 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
 
                 var labCameraForwardNormalized = this.pathCreator.path.GetDirectionAtDistance(UnityEngine.Mathf.Max(0, this.labTrackProgress - 0.5));
                 this.playerCarrot.transform.rotation = new pc.Quat().setLookAt( labCameraForwardNormalized, pc.Vec3.UP.clone() );
+
+                this.mCar.RotateWheels(this.labTrackProgress, this.isTurningLeft, this.isTurningRight);
             },
             /*CarUserControl.FixedUpdate end.*/
 
@@ -4878,7 +4877,6 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
         inherits: [UnityEngine.MonoBehaviour],
         fields: {
             rocketPrefab: null,
-            aim: null,
             carUserControl: null,
             products: null
         },
@@ -4890,11 +4888,9 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
                 }
                 this.products.Transfer(Products.Kind.Rocket, -1);
 
-                var rocket = UnityEngine.Object.Instantiate$2(UnityEngine.Transform, this.rocketPrefab, this.transform.position.$clone(), this.carUserControl.transform.rotation.$clone());
-                //rocket.rotation = Quaternion.LookRotation(aim.position - transform.position, Vector3.up);
-                rocket.Rotate(90.0, 0, 0);
+                var rocket = UnityEngine.Object.Instantiate(UnityEngine.Transform, this.rocketPrefab);
 
-                rocket.GetComponent(Rocket).Fly(this.aim.position.$clone().sub( this.transform.position ), (this.carUserControl.Speed + this.carUserControl.MaxSpeed) * 0.5);
+                rocket.GetComponent(Rocket).Fly(this.carUserControl.pathCreator, this.carUserControl.TrackX, this.carUserControl.LabRightOffset, (this.carUserControl.Speed + this.carUserControl.MaxSpeed) * 0.5);
             },
             /*Gun.Shoot end.*/
 
@@ -6562,6 +6558,15 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
             }
         },
         methods: {
+            /*PathCreation.PathCreator.GetPos start.*/
+            GetPos: function (distance, perpendicularOffset) {
+                var pointOnPath = this.path.GetPointAtDistance(distance);
+                var pathParallel = this.path.GetDirectionAtDistance(distance);
+                var pathPerpendicular = new pc.Vec3().cross( pathParallel, pc.Vec3.UP.clone() ).clone().normalize().$clone().scale( -1 );
+                return pointOnPath.$clone().add( pathPerpendicular.$clone().scale( perpendicularOffset ) );
+            },
+            /*PathCreation.PathCreator.GetPos end.*/
+
             /*PathCreation.PathCreator.InitializeEditorData start.*/
             /**
              * @instance
@@ -8456,25 +8461,26 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
         fields: {
             jetStream: null,
             explosionPrefab: null,
-            speed: 0,
+            selfSpeed: 0,
             additionalSpeed: 0,
-            direction: null,
-            startPosition: null
+            path: null,
+            trackX: 0,
+            trackY: 0
         },
         ctors: {
             init: function () {
-                this.direction = new UnityEngine.Vector3();
-                this.startPosition = new UnityEngine.Vector3();
-                this.speed = 15.0;
+                this.selfSpeed = 1.0;
                 this.additionalSpeed = 0.0;
             }
         },
         methods: {
             /*Rocket.Fly start.*/
-            Fly: function (_direction, _additionalSpeed) {
-                this.startPosition = this.transform.position.$clone();
+            Fly: function (_path, _trackX, _trackY, _additionalSpeed) {
+                this.path = _path;
+                this.trackX = _trackX;
+                this.trackY = _trackY;
                 this.additionalSpeed = _additionalSpeed;
-                this.direction = _direction.clone().normalize().$clone();
+                this.RefreshPosition();
             },
             /*Rocket.Fly end.*/
 
@@ -8486,17 +8492,20 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
 
             /*Rocket.Update start.*/
             Update: function () {
-                this.transform.position = this.transform.position.$clone().add( this.direction.$clone().scale( UnityEngine.Time.deltaTime ).scale( (this.speed + this.additionalSpeed) ) );
+                this.trackX += UnityEngine.Time.deltaTime * (this.selfSpeed + this.additionalSpeed);
+                this.RefreshPosition();
+                if (this.trackX >= this.path.path.length) {
+                    this.Explode();
+                }
             },
             /*Rocket.Update end.*/
 
             /*Rocket.OnTriggerEnter start.*/
             OnTriggerEnter: function (other) {
                 if (Bridge.referenceEquals(other.tag, "Obstacle")) {
-                    other.GetComponent(DamagingObstacle).ExplodeDueToCollision(this.startPosition.$clone(), this.speed + this.additionalSpeed);
+                    other.GetComponent(DamagingObstacle).ExplodeDueToCollision(this.path.GetPos(this.trackX, this.trackY), this.selfSpeed + this.additionalSpeed);
                     this.Explode();
                 }
-
             },
             /*Rocket.OnTriggerEnter end.*/
 
@@ -8506,6 +8515,15 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
                 UnityEngine.MonoBehaviour.Destroy(this.gameObject);
             },
             /*Rocket.Explode end.*/
+
+            /*Rocket.RefreshPosition start.*/
+            RefreshPosition: function () {
+                var direction = this.path.path.GetDirectionAtDistance(this.trackX);
+                this.transform.position = this.path.GetPos(this.trackX, this.trackY).add( new pc.Vec3( 0, 2.0, 0 ) );
+                this.transform.rotation = new pc.Quat().setLookAt( direction, pc.Vec3.UP.clone() );
+                this.transform.Rotate(90.0, 0, 0);
+            },
+            /*Rocket.RefreshPosition end.*/
 
 
         }
@@ -8870,6 +8888,21 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
         }
     });
     /*RuntimeDemo+ExampleClass7 end.*/
+
+    /*ScenePreloader start.*/
+    Bridge.define("ScenePreloader", {
+        inherits: [UnityEngine.MonoBehaviour],
+        methods: {
+            /*ScenePreloader.Start start.*/
+            Start: function () {
+                UnityEngine.SceneManagement.SceneManager.LoadSceneAsync$2("MyMain");
+            },
+            /*ScenePreloader.Start end.*/
+
+
+        }
+    });
+    /*ScenePreloader end.*/
 
     /*ShieldBar start.*/
     Bridge.define("ShieldBar", {
@@ -11287,7 +11320,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
                 this.$initialize();
                 // debug way of init (will be overriden in not debug case)
                 this.inputProperties.trackIndex = 0;
-                this.inputProperties.vehicleIndex = 0;
+                this.inputProperties.vehicleIndex = 1;
                 this.inputProperties.driverIndex = 0;
                 this.inputProperties.gemCount = 100;
             }
@@ -12980,7 +13013,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
     /*GhostWriter+Entry end.*/
 
     /*Gun start.*/
-    $m("Gun", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"Awake","t":8,"sn":"Awake","rt":$n[0].Void},{"a":2,"n":"Shoot","t":8,"sn":"Shoot","rt":$n[0].Void},{"a":1,"n":"Update","t":8,"sn":"Update","rt":$n[0].Void},{"a":2,"n":"aim","t":4,"rt":$n[2].Transform,"sn":"aim"},{"a":2,"n":"carUserControl","t":4,"rt":CarUserControl,"sn":"carUserControl"},{"a":2,"n":"products","t":4,"rt":Products,"sn":"products"},{"a":2,"n":"rocketPrefab","t":4,"rt":$n[2].Transform,"sn":"rocketPrefab"}]}; }, $n);
+    $m("Gun", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"Awake","t":8,"sn":"Awake","rt":$n[0].Void},{"a":2,"n":"Shoot","t":8,"sn":"Shoot","rt":$n[0].Void},{"a":1,"n":"Update","t":8,"sn":"Update","rt":$n[0].Void},{"a":2,"n":"carUserControl","t":4,"rt":CarUserControl,"sn":"carUserControl"},{"a":2,"n":"products","t":4,"rt":Products,"sn":"products"},{"a":2,"n":"rocketPrefab","t":4,"rt":$n[2].Transform,"sn":"rocketPrefab"}]}; }, $n);
     /*Gun end.*/
 
     /*HealthController start.*/
@@ -13020,7 +13053,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
     /*Products+Kind end.*/
 
     /*Rocket start.*/
-    $m("Rocket", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"Explode","t":8,"sn":"Explode","rt":$n[0].Void},{"a":2,"n":"Fly","t":8,"pi":[{"n":"_direction","pt":$n[2].Vector3,"ps":0},{"n":"_additionalSpeed","pt":$n[0].Single,"ps":1}],"sn":"Fly","rt":$n[0].Void,"p":[$n[2].Vector3,$n[0].Single]},{"a":1,"n":"OnTriggerEnter","t":8,"pi":[{"n":"other","pt":$n[2].Collider,"ps":0}],"sn":"OnTriggerEnter","rt":$n[0].Void,"p":[$n[2].Collider]},{"a":1,"n":"Start","t":8,"sn":"Start","rt":$n[0].Void},{"a":1,"n":"Update","t":8,"sn":"Update","rt":$n[0].Void},{"a":1,"n":"additionalSpeed","t":4,"rt":$n[0].Single,"sn":"additionalSpeed","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":1,"n":"direction","t":4,"rt":$n[2].Vector3,"sn":"direction"},{"a":2,"n":"explosionPrefab","t":4,"rt":$n[2].Transform,"sn":"explosionPrefab"},{"a":2,"n":"jetStream","t":4,"rt":$n[2].ParticleSystem,"sn":"jetStream"},{"a":1,"n":"speed","t":4,"rt":$n[0].Single,"sn":"speed","ro":true,"box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":1,"n":"startPosition","t":4,"rt":$n[2].Vector3,"sn":"startPosition"}]}; }, $n);
+    $m("Rocket", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"Explode","t":8,"sn":"Explode","rt":$n[0].Void},{"a":2,"n":"Fly","t":8,"pi":[{"n":"_path","pt":$n[7].PathCreator,"ps":0},{"n":"_trackX","pt":$n[0].Single,"ps":1},{"n":"_trackY","pt":$n[0].Single,"ps":2},{"n":"_additionalSpeed","pt":$n[0].Single,"ps":3}],"sn":"Fly","rt":$n[0].Void,"p":[$n[7].PathCreator,$n[0].Single,$n[0].Single,$n[0].Single]},{"a":1,"n":"OnTriggerEnter","t":8,"pi":[{"n":"other","pt":$n[2].Collider,"ps":0}],"sn":"OnTriggerEnter","rt":$n[0].Void,"p":[$n[2].Collider]},{"a":1,"n":"RefreshPosition","t":8,"sn":"RefreshPosition","rt":$n[0].Void},{"a":1,"n":"Start","t":8,"sn":"Start","rt":$n[0].Void},{"a":1,"n":"Update","t":8,"sn":"Update","rt":$n[0].Void},{"a":1,"n":"additionalSpeed","t":4,"rt":$n[0].Single,"sn":"additionalSpeed","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"explosionPrefab","t":4,"rt":$n[2].Transform,"sn":"explosionPrefab"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"jetStream","t":4,"rt":$n[2].ParticleSystem,"sn":"jetStream"},{"a":1,"n":"path","t":4,"rt":$n[7].PathCreator,"sn":"path"},{"a":1,"n":"selfSpeed","t":4,"rt":$n[0].Single,"sn":"selfSpeed","ro":true,"box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":1,"n":"trackX","t":4,"rt":$n[0].Single,"sn":"trackX","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":1,"n":"trackY","t":4,"rt":$n[0].Single,"sn":"trackY","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}}]}; }, $n);
     /*Rocket end.*/
 
     /*RocketsPanelCtrl start.*/
@@ -13068,6 +13101,10 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
     /*RaceCar+OwnerType start.*/
     $m("RaceCar.OwnerType", function () { return {"td":RaceCar,"att":258,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":2,"n":"OPPONENT","is":true,"t":4,"rt":RaceCar.OwnerType,"sn":"OPPONENT","box":function ($v) { return Bridge.box($v, RaceCar.OwnerType, System.Enum.toStringFn(RaceCar.OwnerType));}},{"a":2,"n":"PLAYER","is":true,"t":4,"rt":RaceCar.OwnerType,"sn":"PLAYER","box":function ($v) { return Bridge.box($v, RaceCar.OwnerType, System.Enum.toStringFn(RaceCar.OwnerType));}}]}; }, $n);
     /*RaceCar+OwnerType end.*/
+
+    /*ScenePreloader start.*/
+    $m("ScenePreloader", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"Start","t":8,"sn":"Start","rt":$n[0].Void}]}; }, $n);
+    /*ScenePreloader end.*/
 
     /*TrackContentGenerator start.*/
     $m("TrackContentGenerator", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":2,"n":"Generate","t":8,"pi":[{"n":"pathCreator","pt":$n[7].PathCreator,"ps":0},{"n":"parent","pt":$n[2].Transform,"ps":1}],"sn":"Generate","rt":$n[0].Void,"p":[$n[7].PathCreator,$n[2].Transform]},{"a":2,"n":"OnItemCollected","t":8,"pi":[{"n":"kind","pt":Products.Kind,"ps":0},{"n":"amout","pt":$n[0].Int32,"ps":1}],"sn":"OnItemCollected","rt":$n[0].Void,"p":[Products.Kind,$n[0].Int32]},{"a":1,"n":"OnLootableItemCollected","t":8,"pi":[{"n":"kind","pt":Products.Kind,"ps":0}],"sn":"OnLootableItemCollected","rt":$n[0].Void,"p":[Products.Kind]},{"at":[new UnityEngine.HideInInspector()],"a":2,"n":"AlreadyGenerated","t":4,"rt":$n[1].List$1(UnityEngine.Transform),"sn":"AlreadyGenerated"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"bonusesPrefabs","t":4,"rt":System.Array.type(UnityEngine.Transform),"sn":"bonusesPrefabs"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"boosts","t":4,"rt":Boosts,"sn":"boosts"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"configFile","t":4,"rt":$n[2].TextAsset,"sn":"configFile"},{"a":1,"n":"finishOffset","t":4,"rt":$n[0].Single,"sn":"finishOffset","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":1,"n":"generationParams","t":4,"rt":$n[9].TrackContentGenerationParams,"sn":"generationParams"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"hardObstaclesPrefabs","t":4,"rt":System.Array.type(UnityEngine.Transform),"sn":"hardObstaclesPrefabs"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":2,"n":"healthController","t":4,"rt":HealthController,"sn":"healthController"},{"a":1,"n":"itemSize","t":4,"rt":$n[0].Single,"sn":"itemSize","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"obstaclesPrefabs","t":4,"rt":System.Array.type(UnityEngine.Transform),"sn":"obstaclesPrefabs"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"parentForPlacing","t":4,"rt":$n[2].Transform,"sn":"parentForPlacing"},{"at":[new UnityEngine.HeaderAttribute("LogicalLinks"),new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"products","t":4,"rt":Products,"sn":"products"},{"a":1,"n":"rowWidth","t":4,"rt":$n[0].Single,"sn":"rowWidth","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":1,"n":"startOffset","t":4,"rt":$n[0].Single,"sn":"startOffset","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}}]}; }, $n);
@@ -13294,7 +13331,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
     /*PathCreation.MinMax3D end.*/
 
     /*PathCreation.PathCreator start.*/
-    $m("PathCreation.PathCreator", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":2,"n":"InitializeEditorData","t":8,"pi":[{"n":"in2DMode","pt":$n[0].Boolean,"ps":0}],"sn":"InitializeEditorData","rt":$n[0].Void,"p":[$n[0].Boolean]},{"a":2,"n":"TriggerPathUpdate","t":8,"sn":"TriggerPathUpdate","rt":$n[0].Void},{"a":2,"n":"EditorData","t":16,"rt":$n[7].PathCreatorData,"g":{"a":2,"n":"get_EditorData","t":8,"rt":$n[7].PathCreatorData,"fg":"EditorData"},"fn":"EditorData"},{"a":2,"n":"bezierPath","t":16,"rt":$n[7].BezierPath,"g":{"a":2,"n":"get_bezierPath","t":8,"rt":$n[7].BezierPath,"fg":"bezierPath"},"s":{"a":2,"n":"set_bezierPath","t":8,"p":[$n[7].BezierPath],"rt":$n[0].Void,"fs":"bezierPath"},"fn":"bezierPath"},{"a":2,"n":"path","t":16,"rt":$n[7].VertexPath,"g":{"a":2,"n":"get_path","t":8,"rt":$n[7].VertexPath,"fg":"path"},"fn":"path"},{"at":[new UnityEngine.SerializeFieldAttribute(),new UnityEngine.HideInInspector()],"a":1,"n":"editorData","t":4,"rt":$n[7].PathCreatorData,"sn":"editorData"},{"a":1,"n":"globalEditorDisplaySettings","t":4,"rt":$n[7].GlobalDisplaySettings,"sn":"globalEditorDisplaySettings"},{"at":[new UnityEngine.SerializeFieldAttribute(),new UnityEngine.HideInInspector()],"a":1,"n":"initialized","t":4,"rt":$n[0].Boolean,"sn":"initialized","box":function ($v) { return Bridge.box($v, System.Boolean, System.Boolean.toString);}},{"a":2,"n":"pathUpdated","t":2,"ad":{"a":2,"n":"add_pathUpdated","t":8,"pi":[{"n":"value","pt":Function,"ps":0}],"sn":"addpathUpdated","rt":$n[0].Void,"p":[Function]},"r":{"a":2,"n":"remove_pathUpdated","t":8,"pi":[{"n":"value","pt":Function,"ps":0}],"sn":"removepathUpdated","rt":$n[0].Void,"p":[Function]}}]}; }, $n);
+    $m("PathCreation.PathCreator", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":2,"n":"GetPos","t":8,"pi":[{"n":"distance","pt":$n[0].Single,"ps":0},{"n":"perpendicularOffset","pt":$n[0].Single,"ps":1}],"sn":"GetPos","rt":$n[2].Vector3,"p":[$n[0].Single,$n[0].Single]},{"a":2,"n":"InitializeEditorData","t":8,"pi":[{"n":"in2DMode","pt":$n[0].Boolean,"ps":0}],"sn":"InitializeEditorData","rt":$n[0].Void,"p":[$n[0].Boolean]},{"a":2,"n":"TriggerPathUpdate","t":8,"sn":"TriggerPathUpdate","rt":$n[0].Void},{"a":2,"n":"EditorData","t":16,"rt":$n[7].PathCreatorData,"g":{"a":2,"n":"get_EditorData","t":8,"rt":$n[7].PathCreatorData,"fg":"EditorData"},"fn":"EditorData"},{"a":2,"n":"bezierPath","t":16,"rt":$n[7].BezierPath,"g":{"a":2,"n":"get_bezierPath","t":8,"rt":$n[7].BezierPath,"fg":"bezierPath"},"s":{"a":2,"n":"set_bezierPath","t":8,"p":[$n[7].BezierPath],"rt":$n[0].Void,"fs":"bezierPath"},"fn":"bezierPath"},{"a":2,"n":"path","t":16,"rt":$n[7].VertexPath,"g":{"a":2,"n":"get_path","t":8,"rt":$n[7].VertexPath,"fg":"path"},"fn":"path"},{"at":[new UnityEngine.SerializeFieldAttribute(),new UnityEngine.HideInInspector()],"a":1,"n":"editorData","t":4,"rt":$n[7].PathCreatorData,"sn":"editorData"},{"a":1,"n":"globalEditorDisplaySettings","t":4,"rt":$n[7].GlobalDisplaySettings,"sn":"globalEditorDisplaySettings"},{"at":[new UnityEngine.SerializeFieldAttribute(),new UnityEngine.HideInInspector()],"a":1,"n":"initialized","t":4,"rt":$n[0].Boolean,"sn":"initialized","box":function ($v) { return Bridge.box($v, System.Boolean, System.Boolean.toString);}},{"a":2,"n":"pathUpdated","t":2,"ad":{"a":2,"n":"add_pathUpdated","t":8,"pi":[{"n":"value","pt":Function,"ps":0}],"sn":"addpathUpdated","rt":$n[0].Void,"p":[Function]},"r":{"a":2,"n":"remove_pathUpdated","t":8,"pi":[{"n":"value","pt":Function,"ps":0}],"sn":"removepathUpdated","rt":$n[0].Void,"p":[Function]}}]}; }, $n);
     /*PathCreation.PathCreator end.*/
 
     /*PathCreation.PathCreatorData start.*/
