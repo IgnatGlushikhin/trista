@@ -1,5 +1,5 @@
 /**
- * @version 1.0.7782.28804
+ * @version 1.0.7783.27090
  * @copyright anton
  * @compiler Bridge.NET 17.9.11-luna
  */
@@ -5234,6 +5234,147 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
     });
     /*LightPole end.*/
 
+    /*Localization start.*/
+    Bridge.define("Localization", {
+        inherits: [UnityEngine.MonoBehaviour],
+        fields: {
+            englishAsset: null,
+            russianAsset: null,
+            locals: null
+        },
+        ctors: {
+            init: function () {
+                this.locals = new (System.Collections.Generic.Dictionary$2(System.String,System.String)).ctor();
+            }
+        },
+        methods: {
+            /*Localization.Awake start.*/
+            Awake: function () {
+                this.SetLanguage();
+            },
+            /*Localization.Awake end.*/
+
+            /*Localization.SetLanguage start.*/
+            SetLanguage: function () {
+                var $t;
+                var data;
+                if (UnityEngine.Application.systemLanguage === UnityEngine.SystemLanguage.English) {
+                    data = this.englishAsset;
+                } else if (UnityEngine.Application.systemLanguage === UnityEngine.SystemLanguage.Russian) {
+                    data = this.russianAsset;
+                } else {
+                    data = this.englishAsset;
+                }
+
+                if (UnityEngine.Object.op_Implicit(data) && data.text != null) {
+                    var localizations = Newtonsoft.Json.JsonConvert.DeserializeObject(data.text, Localization.LocalizationData).$clone();
+
+                    $t = Bridge.getEnumerator(localizations.locals);
+                    try {
+                        while ($t.moveNext()) {
+                            var str = $t.Current.$clone();
+                            this.locals.add(str.id, str.localText);
+                        }
+                    } finally {
+                        if (Bridge.is($t, System.IDisposable)) {
+                            $t.System$IDisposable$Dispose();
+                        }
+                    }
+                } else {
+                    UnityEngine.Debug.Log$1("Localization loading was failed");
+                }
+            },
+            /*Localization.SetLanguage end.*/
+
+            /*Localization.GetLocalsById start.*/
+            GetLocalsById: function (id) {
+                if (this.locals.containsKey(id)) {
+                    return this.locals.getItem(id);
+                } else {
+                    return id;
+                }
+            },
+            /*Localization.GetLocalsById end.*/
+
+
+        }
+    });
+    /*Localization end.*/
+
+    /*Localization+LocalizationData start.*/
+    Bridge.define("Localization.LocalizationData", {
+        $kind: "nested struct",
+        statics: {
+            methods: {
+                getDefaultValue: function () { return new Localization.LocalizationData(); }
+            }
+        },
+        fields: {
+            locals: null
+        },
+        ctors: {
+            ctor: function () {
+                this.$initialize();
+            }
+        },
+        methods: {
+            getHashCode: function () {
+                var h = Bridge.addHash([6757131120, this.locals]);
+                return h;
+            },
+            equals: function (o) {
+                if (!Bridge.is(o, Localization.LocalizationData)) {
+                    return false;
+                }
+                return Bridge.equals(this.locals, o.locals);
+            },
+            $clone: function (to) {
+                var s = to || new Localization.LocalizationData();
+                s.locals = this.locals;
+                return s;
+            }
+        }
+    });
+    /*Localization+LocalizationData end.*/
+
+    /*Localization+LocalizationString start.*/
+    Bridge.define("Localization.LocalizationString", {
+        $kind: "nested struct",
+        statics: {
+            methods: {
+                getDefaultValue: function () { return new Localization.LocalizationString(); }
+            }
+        },
+        fields: {
+            id: null,
+            localText: null
+        },
+        ctors: {
+            ctor: function () {
+                this.$initialize();
+            }
+        },
+        methods: {
+            getHashCode: function () {
+                var h = Bridge.addHash([6891249133, this.id, this.localText]);
+                return h;
+            },
+            equals: function (o) {
+                if (!Bridge.is(o, Localization.LocalizationString)) {
+                    return false;
+                }
+                return Bridge.equals(this.id, o.id) && Bridge.equals(this.localText, o.localText);
+            },
+            $clone: function (to) {
+                var s = to || new Localization.LocalizationString();
+                s.id = this.id;
+                s.localText = this.localText;
+                return s;
+            }
+        }
+    });
+    /*Localization+LocalizationString end.*/
+
     /*LongTapButton start.*/
     Bridge.define("LongTapButton", {
         inherits: [UnityEngine.MonoBehaviour,UnityEngine.EventSystems.IPointerDownHandler,UnityEngine.EventSystems.IPointerUpHandler],
@@ -8892,28 +9033,12 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
     /*ScenePreloader start.*/
     Bridge.define("ScenePreloader", {
         inherits: [UnityEngine.MonoBehaviour],
-        fields: {
-            asyncLoad: null
-        },
         methods: {
             /*ScenePreloader.Start start.*/
             Start: function () {
-                this.asyncLoad = UnityEngine.SceneManagement.SceneManager.LoadSceneAsync$2("MyMain");
-                this.asyncLoad.allowSceneActivation = false;
+                UnityEngine.SceneManagement.SceneManager.LoadSceneAsync$2("MyMain");
             },
             /*ScenePreloader.Start end.*/
-
-            /*ScenePreloader.Update start.*/
-            Update: function () {
-                if (this.asyncLoad.progress >= 0.9) {
-                    this.GetComponentInChildren(UnityEngine.UI.Text).text = "Press SPACE to play";
-                }
-
-                if (this.asyncLoad.progress >= 0.9 && UnityEngine.Input.GetKeyDown(UnityEngine.KeyCode.Space)) {
-                    this.asyncLoad.allowSceneActivation = true;
-                }
-            },
-            /*ScenePreloader.Update end.*/
 
 
         }
@@ -8967,7 +9092,8 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
         fields: {
             txtPew: null,
             txtNoAmmo: null,
-            products: null
+            products: null,
+            localization: null
         },
         methods: {
             /*ShootButtonCtrl.Start start.*/
@@ -8978,6 +9104,9 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
                 _Button.onClick.AddListener(function () {
                     gun.Shoot();
                 });
+
+                this.txtPew.text = this.localization.GetLocalsById("General.Continue");
+                this.txtNoAmmo.text = this.localization.GetLocalsById("RTG.RateButton");
             },
             /*ShootButtonCtrl.Start end.*/
 
@@ -13110,6 +13239,18 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
     $m("GameManager", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"Awake","t":8,"sn":"Awake","rt":$n[0].Void},{"a":2,"n":"CallFinishWebContent","t":8,"sn":"CallFinishWebContent","rt":$n[0].Void},{"a":2,"n":"CheatTeleportToFinish","t":8,"sn":"CheatTeleportToFinish","rt":$n[0].Void},{"a":2,"n":"DestroyObstacles","t":8,"sn":"DestroyObstacles","rt":$n[0].Void},{"a":2,"n":"GasOnOff","t":8,"sn":"GasOnOff","rt":$n[0].Void},{"a":2,"n":"GetInputProperties","t":8,"sn":"GetInputProperties","rt":WebContentProxy.InputProperties},{"a":2,"n":"GetOutputProperties","t":8,"sn":"GetOutputProperties","rt":WebContentProxy.OutputProperties},{"a":1,"n":"OnCountdownEndedHandler","t":8,"sn":"OnCountdownEndedHandler","rt":$n[0].Void},{"a":1,"n":"OnDestroy","t":8,"sn":"OnDestroy","rt":$n[0].Void},{"a":1,"n":"OnEndTutorialHandler","t":8,"sn":"OnEndTutorialHandler","rt":$n[0].Void},{"a":1,"n":"PauseGameplay","t":8,"sn":"PauseGameplay","rt":$n[0].Void},{"a":2,"n":"ReloadScene","t":8,"sn":"ReloadScene","rt":$n[0].Void},{"a":1,"n":"ResumeGameplay","t":8,"sn":"ResumeGameplay","rt":$n[0].Void},{"a":2,"n":"SetOutputProperties","t":8,"pi":[{"n":"properties","pt":WebContentProxy.OutputProperties,"ps":0}],"sn":"SetOutputProperties","rt":$n[0].Void,"p":[WebContentProxy.OutputProperties]},{"a":1,"n":"Start","t":8,"sn":"Start","rt":$n[0].Void},{"a":2,"n":"StartGame","t":8,"sn":"StartGame","rt":$n[0].Void},{"a":1,"n":"Update","t":8,"sn":"Update","rt":$n[0].Void},{"a":1,"n":"UpdatePositions","t":8,"sn":"UpdatePositions","rt":$n[0].Void},{"a":1,"n":"WheatCull","t":8,"sn":"WheatCull","rt":$n[0].Void},{"a":2,"n":"CarUserControl","t":4,"rt":CarUserControl,"sn":"CarUserControl"},{"at":[new UnityEngine.HeaderAttribute("UI")],"a":2,"n":"CountdownWidget","t":4,"rt":Countdown,"sn":"CountdownWidget"},{"a":2,"n":"LandscapeFov","t":4,"rt":$n[0].Single,"sn":"LandscapeFov","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":2,"n":"LastCheckpoint","t":4,"rt":$n[2].Transform,"sn":"LastCheckpoint"},{"a":2,"n":"LoseScreen","t":4,"rt":$n[2].CanvasGroup,"sn":"LoseScreen"},{"a":2,"n":"MainBackroundImage","t":4,"rt":$n[3].Image,"sn":"MainBackroundImage"},{"at":[new UnityEngine.HeaderAttribute("Camera")],"a":2,"n":"MainCamera","t":4,"rt":$n[2].Camera,"sn":"MainCamera"},{"a":2,"n":"MainScreen","t":4,"rt":$n[2].CanvasGroup,"sn":"MainScreen"},{"a":2,"n":"Opponents","t":4,"rt":System.Array.type(Bot),"sn":"Opponents"},{"at":[new UnityEngine.HeaderAttribute("Positions")],"a":2,"n":"PlayerCar","t":4,"rt":RaceCar,"sn":"PlayerCar"},{"a":2,"n":"PortraitFov","t":4,"rt":$n[0].Single,"sn":"PortraitFov","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":2,"n":"Position","t":4,"rt":$n[0].Int32,"sn":"Position","box":function ($v) { return Bridge.box($v, System.Int32);}},{"a":2,"n":"TutorialWindow","t":4,"rt":$n[2].CanvasGroup,"sn":"TutorialWindow"},{"a":2,"n":"WheatCullDistance","t":4,"rt":$n[0].Single,"sn":"WheatCullDistance","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":2,"n":"WinScreen","t":4,"rt":$n[2].CanvasGroup,"sn":"WinScreen"},{"a":1,"n":"_OpponentDistance","t":4,"rt":$n[0].Single,"sn":"_OpponentDistance","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":1,"n":"_PlayerDistance","t":4,"rt":$n[0].Single,"sn":"_PlayerDistance","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":1,"n":"_WebContentProxy","t":4,"rt":WebContentProxy,"sn":"_WebContentProxy"},{"a":1,"n":"_Wheat","t":4,"rt":System.Array.type(UnityEngine.Transform),"sn":"_Wheat"},{"at":[new UnityEngine.HeaderAttribute("Wheat"),new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"_WheatCullDistance","t":4,"rt":$n[0].Single,"sn":"_WheatCullDistance","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":2,"n":"btnLeft","t":4,"rt":LongTapButton,"sn":"btnLeft"},{"a":2,"n":"btnRight","t":4,"rt":LongTapButton,"sn":"btnRight"},{"a":2,"n":"drivers","t":4,"rt":System.Array.type(DriverDescription),"sn":"drivers"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"ghostReader","t":4,"rt":GhostReader,"sn":"ghostReader"},{"a":2,"n":"healthBar","t":4,"rt":HealthBar,"sn":"healthBar"},{"a":2,"n":"healthController","t":4,"rt":HealthController,"sn":"healthController"},{"a":1,"n":"track","t":4,"rt":$n[2].GameObject,"sn":"track"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"trackContentGenerator","t":4,"rt":TrackContentGenerator,"sn":"trackContentGenerator"},{"a":1,"n":"trackHandles","t":4,"rt":TrackHandles,"sn":"trackHandles"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"trackParent","t":4,"rt":$n[2].GameObject,"sn":"trackParent"},{"a":2,"n":"trackPrefabs","t":4,"rt":System.Array.type(UnityEngine.GameObject),"sn":"trackPrefabs"},{"at":[new UnityEngine.HeaderAttribute("Customization")],"a":2,"n":"tracktors","t":4,"rt":System.Array.type(UnityEngine.GameObject),"sn":"tracktors"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"wheatGenerator","t":4,"rt":WheatGenerator,"sn":"wheatGenerator"}]}; }, $n);
     /*GameManager end.*/
 
+    /*Localization start.*/
+    $m("Localization", function () { return {"nested":[Localization.LocalizationData,Localization.LocalizationString],"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"Awake","t":8,"sn":"Awake","rt":$n[0].Void},{"a":2,"n":"GetLocalsById","t":8,"pi":[{"n":"id","pt":$n[0].String,"ps":0}],"sn":"GetLocalsById","rt":$n[0].String,"p":[$n[0].String]},{"a":1,"n":"SetLanguage","t":8,"sn":"SetLanguage","rt":$n[0].Void},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"englishAsset","t":4,"rt":$n[2].TextAsset,"sn":"englishAsset"},{"a":1,"n":"locals","t":4,"rt":$n[1].Dictionary$2(System.String,System.String),"sn":"locals"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"russianAsset","t":4,"rt":$n[2].TextAsset,"sn":"russianAsset"}]}; }, $n);
+    /*Localization end.*/
+
+    /*Localization+LocalizationData start.*/
+    $m("Localization.LocalizationData", function () { return {"td":Localization,"att":1048843,"a":1,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":2,"n":"locals","t":4,"rt":System.Array.type(Localization.LocalizationString),"sn":"locals"}]}; }, $n);
+    /*Localization+LocalizationData end.*/
+
+    /*Localization+LocalizationString start.*/
+    $m("Localization.LocalizationString", function () { return {"td":Localization,"att":1048843,"a":1,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":2,"n":"id","t":4,"rt":$n[0].String,"sn":"id"},{"a":2,"n":"localText","t":4,"rt":$n[0].String,"sn":"localText"}]}; }, $n);
+    /*Localization+LocalizationString end.*/
+
     /*RaceCar start.*/
     $m("RaceCar", function () { return {"nested":[RaceCar.OwnerType],"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"Awake","t":8,"sn":"Awake","rt":$n[0].Void},{"a":1,"n":"OnBoostAdded","t":8,"pi":[{"n":"kind","pt":Products.Kind,"ps":0}],"sn":"OnBoostAdded","rt":$n[0].Void,"p":[Products.Kind]},{"a":1,"n":"OnBoostRemoved","t":8,"pi":[{"n":"kind","pt":Products.Kind,"ps":0}],"sn":"OnBoostRemoved","rt":$n[0].Void,"p":[Products.Kind]},{"a":1,"n":"OnTriggerEnter","t":8,"pi":[{"n":"other","pt":$n[2].Collider,"ps":0}],"sn":"OnTriggerEnter","rt":$n[0].Void,"p":[$n[2].Collider]},{"a":1,"n":"Start","t":8,"sn":"Start","rt":$n[0].Void},{"a":2,"n":"OnWheatCollected","t":4,"rt":Function,"sn":"OnWheatCollected"},{"a":2,"n":"Owner","t":4,"rt":RaceCar.OwnerType,"sn":"Owner","box":function ($v) { return Bridge.box($v, RaceCar.OwnerType, System.Enum.toStringFn(RaceCar.OwnerType));}},{"a":2,"n":"Score","t":4,"rt":$n[0].Int32,"sn":"Score","box":function ($v) { return Bridge.box($v, System.Int32);}},{"a":1,"n":"activeBoostEffects","t":4,"rt":$n[1].Dictionary$2(Products.Kind,UnityEngine.GameObject),"sn":"activeBoostEffects"},{"a":2,"n":"boosts","t":4,"rt":Boosts,"sn":"boosts"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"boostsEffectPosition","t":4,"rt":$n[2].Transform,"sn":"boostsEffectPosition"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"effectDoublePrefab","t":4,"rt":$n[2].GameObject,"sn":"effectDoublePrefab"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"effectSheildPrefab","t":4,"rt":$n[2].GameObject,"sn":"effectSheildPrefab"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"products","t":4,"rt":Products,"sn":"products"}]}; }, $n);
     /*RaceCar end.*/
@@ -13119,7 +13260,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
     /*RaceCar+OwnerType end.*/
 
     /*ScenePreloader start.*/
-    $m("ScenePreloader", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"Start","t":8,"sn":"Start","rt":$n[0].Void},{"a":1,"n":"Update","t":8,"sn":"Update","rt":$n[0].Void},{"a":1,"n":"asyncLoad","t":4,"rt":$n[2].AsyncOperation,"sn":"asyncLoad"}]}; }, $n);
+    $m("ScenePreloader", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"Start","t":8,"sn":"Start","rt":$n[0].Void}]}; }, $n);
     /*ScenePreloader end.*/
 
     /*TrackContentGenerator start.*/
@@ -13203,7 +13344,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
     /*ShieldBar end.*/
 
     /*ShootButtonCtrl start.*/
-    $m("ShootButtonCtrl", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"Start","t":8,"sn":"Start","rt":$n[0].Void},{"a":1,"n":"Update","t":8,"sn":"Update","rt":$n[0].Void},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"products","t":4,"rt":Products,"sn":"products"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"txtNoAmmo","t":4,"rt":$n[3].Text,"sn":"txtNoAmmo"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"txtPew","t":4,"rt":$n[3].Text,"sn":"txtPew"}]}; }, $n);
+    $m("ShootButtonCtrl", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"Start","t":8,"sn":"Start","rt":$n[0].Void},{"a":1,"n":"Update","t":8,"sn":"Update","rt":$n[0].Void},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"localization","t":4,"rt":Localization,"sn":"localization"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"products","t":4,"rt":Products,"sn":"products"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"txtNoAmmo","t":4,"rt":$n[3].Text,"sn":"txtNoAmmo"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"txtPew","t":4,"rt":$n[3].Text,"sn":"txtPew"}]}; }, $n);
     /*ShootButtonCtrl end.*/
 
     /*TrackHandles start.*/
