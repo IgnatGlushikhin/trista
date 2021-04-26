@@ -47,24 +47,13 @@ body {
           },
           packageConfig: {
               email: "zaychenkov@game-insight.com",
-              signature: "87bdb0527d822474eb2132d6bb20d06f",
-              version: "1.7.0"
+              signature: "b77ea3c632d349a429a454fefd662cc2",
+              version: "1.8.0"
           }
       };
       
     </script>
-    <script>
-
-        var queryString = window.location.search;
-        var urlParams = new URLSearchParams(queryString);
-        var inputJsDataPayload = urlParams.get('payload');
-        
-        function closeWebContent( payload ) {
-            //JavaScriptInterface leads to android API
-            JavaScriptInterface.closeWebContent( payload );
-        }
-
-        ( function() {
+    <script>( function() {
     // Helper functions
 
     /**
@@ -906,6 +895,7 @@ body {
     <script src="engine\luna\physics2d-0.js" defer type="text/javascript"></script>
     <script src="engine\luna\script1.js" defer type="text/javascript"></script>
     <script src="engine\luna\physics3d-1.js" defer type="text/javascript"></script>
+    <script src="engine\luna\particle-system-1.js" defer type="text/javascript"></script>
     <script src="engine\unity\bin\Bridge.Locales.js" defer type="text/javascript"></script>
     <script src="engine\unity\bin\UnityEngine.js" defer type="text/javascript"></script>
     <script src="engine\unity\bin\UnityEngine.UI.js" defer type="text/javascript"></script>
@@ -914,6 +904,7 @@ body {
     <script src="engine\unity\bin\DOTween.js" defer type="text/javascript"></script>
     <script src="engine\unity\bin\UnityScriptsCompiler.js" defer type="text/javascript"></script>
     <script src="engine\luna\script3.js" defer type="text/javascript"></script>
+    <script src="js\ExternalJS\webContentProxy.js" defer type="text/javascript"></script>
     <script src="js/scripts.js" defer type="text/javascript"></script>
     <script src="https://spectorcdn.babylonjs.com/spector.bundle.js"></script>
     <script src="https://browser.sentry-cdn.com/5.20.1/bundle.min.js" integrity="sha384-O8HdAJg1h8RARFowXd2J/r5fIWuinSBtjhwQoPesfVILeXzGpJxvyY/77OaPPXUo" crossorigin="anonymous"></script><!-- htmlmin:ignore -->

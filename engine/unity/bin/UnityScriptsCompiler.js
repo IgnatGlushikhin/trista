@@ -1,5 +1,5 @@
 /**
- * @version 1.0.7783.27798
+ * @version 1.0.7786.35964
  * @copyright anton
  * @compiler Bridge.NET 17.9.11-luna
  */
@@ -645,7 +645,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
                         var dataItem = $t1.Current;
                         var wgtBoost = UnityEngine.Object.Instantiate$1(UnityEngine.Transform, this.wgtBoostPrefab, this.transform, false);
                         wgtBoost.GetComponent(UIActiveBoost).SetKind(dataItem.Kind);
-                        wgtBoost.GetComponent(UIActiveBoost).TimeLeft = dataItem.TimeLeft;
+                        wgtBoost.GetComponent(UIActiveBoost).SetTimeLeft(dataItem.TimeLeft);
                     }
                 } finally {
                     if (Bridge.is($t1, System.IDisposable)) {
@@ -4359,7 +4359,6 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
             /*GameManager.Awake start.*/
             Awake: function () {
                 var $t;
-                this._WebContentProxy.inputPayload = inputJsDataPayload;
                 this._WebContentProxy.DecodeInputPayload();
 
                 var trackIndex = this.GetInputProperties().trackIndex;
@@ -4878,11 +4877,17 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
         fields: {
             rocketPrefab: null,
             carUserControl: null,
-            products: null
+            products: null,
+            shootTimeout: 0,
+            shootTimeoutTimer: 0
         },
         methods: {
             /*Gun.Shoot start.*/
             Shoot: function () {
+                if (this.shootTimeoutTimer > 0.0) {
+                    return;
+                }
+
                 if (this.products.Count(Products.Kind.Rocket) === 0) {
                     return;
                 }
@@ -4891,6 +4896,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
                 var rocket = UnityEngine.Object.Instantiate(UnityEngine.Transform, this.rocketPrefab);
 
                 rocket.GetComponent(Rocket).Fly(this.carUserControl.pathCreator, this.carUserControl.TrackX, this.carUserControl.LabRightOffset, (this.carUserControl.Speed + this.carUserControl.MaxSpeed) * 0.5);
+                this.shootTimeoutTimer = this.shootTimeout;
             },
             /*Gun.Shoot end.*/
 
@@ -4898,12 +4904,15 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
             Awake: function () {
                 var managerObject = UnityEngine.GameObject.Find("GameManager");
                 this.products = managerObject.GetComponentInChildren(Products);
+                this.shootTimeout = 1.0;
             },
             /*Gun.Awake end.*/
 
             /*Gun.Update start.*/
             Update: function () {
-
+                if (this.shootTimeoutTimer > 0.0) {
+                    this.shootTimeoutTimer -= UnityEngine.Time.deltaTime;
+                }
             },
             /*Gun.Update end.*/
 
@@ -4916,17 +4925,14 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
     Bridge.define("HealthBar", {
         inherits: [UnityEngine.MonoBehaviour],
         fields: {
-            Slider: null,
-            HealthProvider: null,
-            BarIconImage: null
+            progressImage: null,
+            BarIconImage: null,
+            HealthProvider: null
         },
         methods: {
             /*HealthBar.Start start.*/
             Start: function () {
                 this.HealthProvider = UnityEngine.GameObject.Find("GameManager").GetComponent(GameManager).healthController;
-                this.Slider.minValue = 0;
-                this.Slider.maxValue = this.HealthProvider.MaxHealth;
-                this.Slider.value = this.HealthProvider.MaxHealth;
 
                 this.HealthProvider.OnDamaged = Bridge.fn.combine(this.HealthProvider.OnDamaged, Bridge.fn.cacheBind(this, this.OnHealthChangedHandler));
                 this.HealthProvider.OnHealed = Bridge.fn.combine(this.HealthProvider.OnHealed, Bridge.fn.cacheBind(this, this.OnHealthChangedHandler));
@@ -4935,8 +4941,11 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
 
             /*HealthBar.OnHealthChangedHandler start.*/
             OnHealthChangedHandler: function () {
+                if (!UnityEngine.Object.op_Implicit(this.HealthProvider)) {
+                    return;
+                }
                 DG.Tweening.TweenSettingsExtensions.From$6(DG.Tweening.ShortcutExtensions.DOScale(this.BarIconImage.transform, 1.0, 0.25), 1.3);
-                this.Slider.value = this.HealthProvider.Health;
+                this.progressImage.fillAmount = this.HealthProvider.Health / this.HealthProvider.MaxHealth;
             },
             /*HealthBar.OnHealthChangedHandler end.*/
 
@@ -9049,37 +9058,30 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
     Bridge.define("ShieldBar", {
         inherits: [UnityEngine.MonoBehaviour],
         fields: {
-            slider: null,
-            healthController: null,
+            progressImage: null,
             barIconImage: null,
-            allUI: null
+            root: null,
+            healthController: null
         },
         methods: {
             /*ShieldBar.Start start.*/
             Start: function () {
                 this.healthController = UnityEngine.GameObject.Find("GameManager").GetComponent(GameManager).healthController;
-                this.slider.minValue = 0;
-                this.slider.maxValue = this.healthController.MaxShield;
-                this.slider.value = 0;
 
                 this.healthController.OnShieldDamaged = Bridge.fn.combine(this.healthController.OnShieldDamaged, Bridge.fn.cacheBind(this, this.OnShieldChangedHandler));
                 this.healthController.OnShieldRaised = Bridge.fn.combine(this.healthController.OnShieldRaised, Bridge.fn.cacheBind(this, this.OnShieldChangedHandler));
                 this.healthController.OnShieldLowered = Bridge.fn.combine(this.healthController.OnShieldLowered, Bridge.fn.cacheBind(this, this.OnShieldChangedHandler));
-                this.allUI.SetActive(false);
+                this.root.SetActive(false);
             },
             /*ShieldBar.Start end.*/
 
             /*ShieldBar.OnShieldChangedHandler start.*/
             OnShieldChangedHandler: function () {
-                this.allUI.SetActive(this.healthController.Shield > 0);
+                this.root.SetActive(this.healthController.Shield > 0);
                 DG.Tweening.TweenSettingsExtensions.From$6(DG.Tweening.ShortcutExtensions.DOScale(this.barIconImage.transform, 1.0, 0.25), 1.3);
-                this.slider.value = this.healthController.Shield;
+                this.progressImage.fillAmount = this.healthController.Shield / this.healthController.MaxShield;
             },
             /*ShieldBar.OnShieldChangedHandler end.*/
-
-            /*ShieldBar.Update start.*/
-            Update: function () { },
-            /*ShieldBar.Update end.*/
 
 
         }
@@ -9090,30 +9092,33 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
     Bridge.define("ShootButtonCtrl", {
         inherits: [UnityEngine.MonoBehaviour],
         fields: {
-            txtPew: null,
-            txtNoAmmo: null,
+            txtAmount: null,
+            timerImg: null,
             products: null,
-            localization: null
+            gun: null
         },
         methods: {
             /*ShootButtonCtrl.Start start.*/
             Start: function () {
-                var gun = UnityEngine.GameObject.Find("GameManager").GetComponent(GameManager).PlayerCar.GetComponentInChildren(Gun);
+                var gameManagetObject = UnityEngine.GameObject.Find("GameManager");
+                this.gun = gameManagetObject.GetComponent(GameManager).PlayerCar.GetComponentInChildren(Gun);
+                this.products = gameManagetObject.GetComponentInChildren(Products);
                 var _Button = this.GetComponent(UnityEngine.UI.Button);
 
-                _Button.onClick.AddListener(function () {
-                    gun.Shoot();
-                });
-
-                this.txtPew.text = this.localization.GetLocalsById("General.Continue");
-                this.txtNoAmmo.text = this.localization.GetLocalsById("RTG.RateButton");
+                _Button.onClick.AddListener(Bridge.fn.bind(this, function () {
+                    this.gun.Shoot();
+                }));
             },
             /*ShootButtonCtrl.Start end.*/
 
             /*ShootButtonCtrl.Update start.*/
             Update: function () {
-                this.txtPew.enabled = this.products.Count(Products.Kind.Rocket) > 0;
-                this.txtNoAmmo.enabled = this.products.Count(Products.Kind.Rocket) === 0;
+                if (!UnityEngine.Object.op_Implicit(this.gun) || !UnityEngine.Object.op_Implicit(this.products)) {
+                    return;
+                }
+
+                this.txtAmount.text = Bridge.toString(this.products.Count(Products.Kind.Rocket));
+                this.timerImg.fillAmount = this.gun.shootTimeoutTimer / this.gun.shootTimeout;
             },
             /*ShootButtonCtrl.Update end.*/
 
@@ -10956,10 +10961,11 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
         inherits: [UnityEngine.MonoBehaviour],
         fields: {
             imgIcon: null,
-            txtTimer: null,
+            timerImg: null,
             sprites: null,
             Kind: 0,
-            TimeLeft: 0
+            TimeLeft: 0,
+            timerValue: 0
         },
         ctors: {
             init: function () {
@@ -10978,19 +10984,21 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
             },
             /*UIActiveBoost.SetKind end.*/
 
-            /*UIActiveBoost.Start start.*/
-            Start: function () { },
-            /*UIActiveBoost.Start end.*/
+            /*UIActiveBoost.SetTimeLeft start.*/
+            SetTimeLeft: function (value) {
+                this.TimeLeft = value;
+                this.timerValue = value;
+            },
+            /*UIActiveBoost.SetTimeLeft end.*/
 
             /*UIActiveBoost.Update start.*/
             Update: function () {
-                this.TimeLeft -= UnityEngine.Time.deltaTime;
-                if (this.TimeLeft <= 0.0) {
+                this.timerValue -= UnityEngine.Time.deltaTime;
+                if (this.timerValue <= 0.0) {
                     UnityEngine.MonoBehaviour.Destroy(this.gameObject);
                 }
 
-                var timeSpan = System.TimeSpan.fromSeconds(this.TimeLeft);
-                this.txtTimer.text = System.String.format("{0:D2}:{1:D2}", Bridge.box(timeSpan.getMinutes(), System.Int32), Bridge.box(timeSpan.getSeconds(), System.Int32));
+                this.timerImg.fillAmount = 1.0 - this.timerValue / this.TimeLeft;
             },
             /*UIActiveBoost.Update end.*/
 
@@ -11452,7 +11460,8 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
             inputPayload: null,
             outputPayload: null,
             inputProperties: null,
-            outputProperties: null
+            outputProperties: null,
+            jsDelegate: null
         },
         ctors: {
             init: function () {
@@ -11460,12 +11469,13 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
                 this.outputProperties = new WebContentProxy.OutputProperties();
                 this.inputPayload = "";
                 this.outputPayload = "";
+                this.jsDelegate = new webContentProxyObject();
             },
             ctor: function () {
                 this.$initialize();
                 // debug way of init (will be overriden in not debug case)
                 this.inputProperties.trackIndex = 0;
-                this.inputProperties.vehicleIndex = 1;
+                this.inputProperties.vehicleIndex = 0;
                 this.inputProperties.driverIndex = 0;
                 this.inputProperties.gemCount = 100;
             }
@@ -11473,6 +11483,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
         methods: {
             /*WebContentProxy.DecodeInputPayload start.*/
             DecodeInputPayload: function () {
+                this.inputPayload = this.jsDelegate.getInputJsPayload();
                 // InputPayloadReplacementStub means Unity debug mode
                 if (System.String.equals(this.inputPayload, "InputPayloadReplacementStub")) {
                     return;
@@ -11486,7 +11497,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
             /*WebContentProxy.CallFinishWebContentFunction start.*/
             CallFinishWebContentFunction: function () {
                 this.EncodeOutputPayload();
-                closeWebContent(this.outputPayload);
+                this.jsDelegate.closeWebContent(this.outputPayload);
             },
             /*WebContentProxy.CallFinishWebContentFunction end.*/
 
@@ -11793,11 +11804,10 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
     Bridge.define("WheatSliderWidget", {
         inherits: [UnityEngine.MonoBehaviour],
         fields: {
-            Slider: null,
             gameManager: null,
+            amountText: null,
             BarIconImage: null,
             WheatImage: null,
-            MaxWheat: 0,
             _ImageSourcePosition: null,
             RaceCar: null,
             products: null,
@@ -11806,22 +11816,19 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
         ctors: {
             init: function () {
                 this._ImageSourcePosition = new UnityEngine.Vector3();
-                this.MaxWheat = 200;
                 this.cooldown = 0.0;
             }
         },
         methods: {
             /*WheatSliderWidget.Start start.*/
             Start: function () {
+                this.gameManager = UnityEngine.GameObject.Find("GameManager").GetComponent(GameManager);
                 var color = new pc.Color( 1, 1, 1, 1 );
                 color.a = 0;
                 this.WheatImage.color = color.$clone();
                 this._ImageSourcePosition = this.WheatImage.rectTransform.position.$clone();
-
-                this.Slider.minValue = 0;
-                this.Slider.maxValue = this.MaxWheat;
                 this.RaceCar = this.gameManager.PlayerCar;
-                this.Slider.value = this.products.Count(Products.Kind.Wheat);
+                this.amountText.text = Bridge.toString(this.products.Count(Products.Kind.Wheat));
 
                 this.RaceCar.OnWheatCollected = Bridge.fn.combine(this.RaceCar.OnWheatCollected, Bridge.fn.cacheBind(this, this.OnWheatCollectedHandler));
             },
@@ -11836,7 +11843,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
             /*WheatSliderWidget.OnWheatCollectedHandler start.*/
             OnWheatCollectedHandler: function (number) {
                 if (this.cooldown > 0) {
-                    this.Slider.value += number;
+                    this.amountText.text = Bridge.toString(this.products.Count(Products.Kind.Wheat));
                     return;
                 }
                 this.cooldown = 0.4;
@@ -11850,7 +11857,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
                             DG.Tweening.TweenSettingsExtensions.OnComplete(DG.Tweening.Core.TweenerCore$3(UnityEngine.Color,UnityEngine.Color,DG.Tweening.Plugins.Options.ColorOptions), DG.Tweening.DOTweenModuleUI.DOFade$2(wheatImage.v, 1, 0.2), Bridge.fn.bind(this, function () {
                                 DG.Tweening.TweenSettingsExtensions.OnComplete(DG.Tweening.Core.TweenerCore$3(UnityEngine.Color,UnityEngine.Color,DG.Tweening.Plugins.Options.ColorOptions), DG.Tweening.DOTweenModuleUI.DOFade$2(wheatImage.v, 0, 0.1), Bridge.fn.bind(this, function () {
                                     DG.Tweening.ShortcutExtensions.DOKill(wheatImage.v);
-                                    this.Slider.value += number;
+                                    this.amountText.text = Bridge.toString(this.products.Count(Products.Kind.Wheat));
                                     UnityEngine.Object.Destroy(wheatImage.v);
                                 }));
                             }));
@@ -13158,7 +13165,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
     /*GhostWriter+Entry end.*/
 
     /*Gun start.*/
-    $m("Gun", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"Awake","t":8,"sn":"Awake","rt":$n[0].Void},{"a":2,"n":"Shoot","t":8,"sn":"Shoot","rt":$n[0].Void},{"a":1,"n":"Update","t":8,"sn":"Update","rt":$n[0].Void},{"a":2,"n":"carUserControl","t":4,"rt":CarUserControl,"sn":"carUserControl"},{"a":2,"n":"products","t":4,"rt":Products,"sn":"products"},{"a":2,"n":"rocketPrefab","t":4,"rt":$n[2].Transform,"sn":"rocketPrefab"}]}; }, $n);
+    $m("Gun", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"Awake","t":8,"sn":"Awake","rt":$n[0].Void},{"a":2,"n":"Shoot","t":8,"sn":"Shoot","rt":$n[0].Void},{"a":1,"n":"Update","t":8,"sn":"Update","rt":$n[0].Void},{"a":2,"n":"shootTimeout","t":16,"rt":$n[0].Single,"g":{"a":2,"n":"get_shootTimeout","t":8,"rt":$n[0].Single,"fg":"shootTimeout","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},"s":{"a":1,"n":"set_shootTimeout","t":8,"p":[$n[0].Single],"rt":$n[0].Void,"fs":"shootTimeout"},"fn":"shootTimeout"},{"a":2,"n":"shootTimeoutTimer","t":16,"rt":$n[0].Single,"g":{"a":2,"n":"get_shootTimeoutTimer","t":8,"rt":$n[0].Single,"fg":"shootTimeoutTimer","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},"s":{"a":1,"n":"set_shootTimeoutTimer","t":8,"p":[$n[0].Single],"rt":$n[0].Void,"fs":"shootTimeoutTimer"},"fn":"shootTimeoutTimer"},{"a":2,"n":"carUserControl","t":4,"rt":CarUserControl,"sn":"carUserControl"},{"a":2,"n":"products","t":4,"rt":Products,"sn":"products"},{"a":2,"n":"rocketPrefab","t":4,"rt":$n[2].Transform,"sn":"rocketPrefab"},{"a":1,"backing":true,"n":"<shootTimeout>k__BackingField","t":4,"rt":$n[0].Single,"sn":"shootTimeout","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":1,"backing":true,"n":"<shootTimeoutTimer>k__BackingField","t":4,"rt":$n[0].Single,"sn":"shootTimeoutTimer","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}}]}; }, $n);
     /*Gun end.*/
 
     /*HealthController start.*/
@@ -13284,7 +13291,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
     /*EndGameButton end.*/
 
     /*HealthBar start.*/
-    $m("HealthBar", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"OnHealthChangedHandler","t":8,"sn":"OnHealthChangedHandler","rt":$n[0].Void},{"a":1,"n":"Start","t":8,"sn":"Start","rt":$n[0].Void},{"a":2,"n":"BarIconImage","t":4,"rt":$n[3].Image,"sn":"BarIconImage"},{"a":2,"n":"HealthProvider","t":4,"rt":HealthController,"sn":"HealthProvider"},{"a":2,"n":"Slider","t":4,"rt":$n[3].Slider,"sn":"Slider"}]}; }, $n);
+    $m("HealthBar", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"OnHealthChangedHandler","t":8,"sn":"OnHealthChangedHandler","rt":$n[0].Void},{"a":1,"n":"Start","t":8,"sn":"Start","rt":$n[0].Void},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"BarIconImage","t":4,"rt":$n[3].Image,"sn":"BarIconImage"},{"a":2,"n":"HealthProvider","t":4,"rt":HealthController,"sn":"HealthProvider"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"progressImage","t":4,"rt":$n[3].Image,"sn":"progressImage"}]}; }, $n);
     /*HealthBar end.*/
 
     /*LunaUIFields start.*/
@@ -13300,7 +13307,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
     /*TimeSinceStartup end.*/
 
     /*WheatSliderWidget start.*/
-    $m("WheatSliderWidget", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"OnWheatCollectedHandler","t":8,"pi":[{"n":"number","pt":$n[0].Int32,"ps":0}],"sn":"OnWheatCollectedHandler","rt":$n[0].Void,"p":[$n[0].Int32]},{"a":1,"n":"Start","t":8,"sn":"Start","rt":$n[0].Void},{"a":1,"n":"Update","t":8,"sn":"Update","rt":$n[0].Void},{"a":2,"n":"BarIconImage","t":4,"rt":$n[3].Image,"sn":"BarIconImage"},{"a":2,"n":"MaxWheat","t":4,"rt":$n[0].Int32,"sn":"MaxWheat","box":function ($v) { return Bridge.box($v, System.Int32);}},{"a":1,"n":"RaceCar","t":4,"rt":RaceCar,"sn":"RaceCar"},{"a":2,"n":"Slider","t":4,"rt":$n[3].Slider,"sn":"Slider"},{"a":2,"n":"WheatImage","t":4,"rt":$n[3].Image,"sn":"WheatImage"},{"a":1,"n":"_ImageSourcePosition","t":4,"rt":$n[2].Vector3,"sn":"_ImageSourcePosition"},{"a":1,"n":"cooldown","t":4,"rt":$n[0].Single,"sn":"cooldown","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":2,"n":"gameManager","t":4,"rt":GameManager,"sn":"gameManager"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"products","t":4,"rt":Products,"sn":"products"}]}; }, $n);
+    $m("WheatSliderWidget", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"OnWheatCollectedHandler","t":8,"pi":[{"n":"number","pt":$n[0].Int32,"ps":0}],"sn":"OnWheatCollectedHandler","rt":$n[0].Void,"p":[$n[0].Int32]},{"a":1,"n":"Start","t":8,"sn":"Start","rt":$n[0].Void},{"a":1,"n":"Update","t":8,"sn":"Update","rt":$n[0].Void},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"BarIconImage","t":4,"rt":$n[3].Image,"sn":"BarIconImage"},{"a":1,"n":"RaceCar","t":4,"rt":RaceCar,"sn":"RaceCar"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"WheatImage","t":4,"rt":$n[3].Image,"sn":"WheatImage"},{"a":1,"n":"_ImageSourcePosition","t":4,"rt":$n[2].Vector3,"sn":"_ImageSourcePosition"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"amountText","t":4,"rt":$n[3].Text,"sn":"amountText"},{"a":1,"n":"cooldown","t":4,"rt":$n[0].Single,"sn":"cooldown","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":1,"n":"gameManager","t":4,"rt":GameManager,"sn":"gameManager"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"products","t":4,"rt":Products,"sn":"products"}]}; }, $n);
     /*WheatSliderWidget end.*/
 
     /*WinScreenWidget start.*/
@@ -13328,7 +13335,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
     /*WheelEffects end.*/
 
     /*WebContentProxy start.*/
-    $m("WebContentProxy", function () { return {"nested":[WebContentProxy.InputProperties,WebContentProxy.OutputProperties],"att":1048577,"a":2,"m":[{"a":2,"n":".ctor","t":1,"sn":"ctor"},{"a":2,"n":"CallFinishWebContentFunction","t":8,"sn":"CallFinishWebContentFunction","rt":$n[0].Void},{"a":2,"n":"DecodeInputPayload","t":8,"sn":"DecodeInputPayload","rt":$n[0].Void},{"a":1,"n":"EncodeOutputPayload","t":8,"sn":"EncodeOutputPayload","rt":$n[0].Void},{"a":2,"n":"inputPayload","t":4,"rt":$n[0].String,"sn":"inputPayload"},{"a":2,"n":"inputProperties","t":4,"rt":WebContentProxy.InputProperties,"sn":"inputProperties"},{"a":2,"n":"outputPayload","t":4,"rt":$n[0].String,"sn":"outputPayload"},{"a":2,"n":"outputProperties","t":4,"rt":WebContentProxy.OutputProperties,"sn":"outputProperties"}]}; }, $n);
+    $m("WebContentProxy", function () { return {"nested":[WebContentProxy.InputProperties,WebContentProxy.OutputProperties],"att":1048577,"a":2,"m":[{"a":2,"n":".ctor","t":1,"sn":"ctor"},{"a":2,"n":"CallFinishWebContentFunction","t":8,"sn":"CallFinishWebContentFunction","rt":$n[0].Void},{"a":2,"n":"DecodeInputPayload","t":8,"sn":"DecodeInputPayload","rt":$n[0].Void},{"a":1,"n":"EncodeOutputPayload","t":8,"sn":"EncodeOutputPayload","rt":$n[0].Void},{"a":2,"n":"inputPayload","t":4,"rt":$n[0].String,"sn":"inputPayload"},{"a":2,"n":"inputProperties","t":4,"rt":WebContentProxy.InputProperties,"sn":"inputProperties"},{"a":1,"n":"jsDelegate","t":4,"rt":webContentProxyObject,"sn":"jsDelegate"},{"a":2,"n":"outputPayload","t":4,"rt":$n[0].String,"sn":"outputPayload"},{"a":2,"n":"outputProperties","t":4,"rt":WebContentProxy.OutputProperties,"sn":"outputProperties"}]}; }, $n);
     /*WebContentProxy end.*/
 
     /*WebContentProxy+InputProperties start.*/
@@ -13340,11 +13347,11 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
     /*WebContentProxy+OutputProperties end.*/
 
     /*ShieldBar start.*/
-    $m("ShieldBar", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"OnShieldChangedHandler","t":8,"sn":"OnShieldChangedHandler","rt":$n[0].Void},{"a":1,"n":"Start","t":8,"sn":"Start","rt":$n[0].Void},{"a":1,"n":"Update","t":8,"sn":"Update","rt":$n[0].Void},{"a":2,"n":"allUI","t":4,"rt":$n[2].GameObject,"sn":"allUI"},{"a":2,"n":"barIconImage","t":4,"rt":$n[3].Image,"sn":"barIconImage"},{"a":2,"n":"healthController","t":4,"rt":HealthController,"sn":"healthController"},{"a":2,"n":"slider","t":4,"rt":$n[3].Slider,"sn":"slider"}]}; }, $n);
+    $m("ShieldBar", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"OnShieldChangedHandler","t":8,"sn":"OnShieldChangedHandler","rt":$n[0].Void},{"a":1,"n":"Start","t":8,"sn":"Start","rt":$n[0].Void},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"barIconImage","t":4,"rt":$n[3].Image,"sn":"barIconImage"},{"a":1,"n":"healthController","t":4,"rt":HealthController,"sn":"healthController"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"progressImage","t":4,"rt":$n[3].Image,"sn":"progressImage"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"root","t":4,"rt":$n[2].GameObject,"sn":"root"}]}; }, $n);
     /*ShieldBar end.*/
 
     /*ShootButtonCtrl start.*/
-    $m("ShootButtonCtrl", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"Start","t":8,"sn":"Start","rt":$n[0].Void},{"a":1,"n":"Update","t":8,"sn":"Update","rt":$n[0].Void},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"localization","t":4,"rt":Localization,"sn":"localization"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"products","t":4,"rt":Products,"sn":"products"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"txtNoAmmo","t":4,"rt":$n[3].Text,"sn":"txtNoAmmo"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"txtPew","t":4,"rt":$n[3].Text,"sn":"txtPew"}]}; }, $n);
+    $m("ShootButtonCtrl", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"Start","t":8,"sn":"Start","rt":$n[0].Void},{"a":1,"n":"Update","t":8,"sn":"Update","rt":$n[0].Void},{"a":1,"n":"gun","t":4,"rt":Gun,"sn":"gun"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"products","t":4,"rt":Products,"sn":"products"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"timerImg","t":4,"rt":$n[3].Image,"sn":"timerImg"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"txtAmount","t":4,"rt":$n[3].Text,"sn":"txtAmount"}]}; }, $n);
     /*ShootButtonCtrl end.*/
 
     /*TrackHandles start.*/
@@ -13352,7 +13359,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
     /*TrackHandles end.*/
 
     /*UIActiveBoost start.*/
-    $m("UIActiveBoost", function () { return {"nested":[UIActiveBoost.SpriteByKind],"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"OnValidate","t":8,"sn":"OnValidate","rt":$n[0].Void},{"a":2,"n":"SetKind","t":8,"pi":[{"n":"value","pt":Products.Kind,"ps":0}],"sn":"SetKind","rt":$n[0].Void,"p":[Products.Kind]},{"a":1,"n":"Start","t":8,"sn":"Start","rt":$n[0].Void},{"a":1,"n":"Update","t":8,"sn":"Update","rt":$n[0].Void},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"Kind","t":4,"rt":Products.Kind,"sn":"Kind","box":function ($v) { return Bridge.box($v, Products.Kind, System.Enum.toStringFn(Products.Kind));}},{"a":2,"n":"TimeLeft","t":4,"rt":$n[0].Single,"sn":"TimeLeft","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"imgIcon","t":4,"rt":$n[3].Image,"sn":"imgIcon"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"sprites","t":4,"rt":System.Array.type(UIActiveBoost.SpriteByKind),"sn":"sprites"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"txtTimer","t":4,"rt":$n[3].Text,"sn":"txtTimer"}]}; }, $n);
+    $m("UIActiveBoost", function () { return {"nested":[UIActiveBoost.SpriteByKind],"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"OnValidate","t":8,"sn":"OnValidate","rt":$n[0].Void},{"a":2,"n":"SetKind","t":8,"pi":[{"n":"value","pt":Products.Kind,"ps":0}],"sn":"SetKind","rt":$n[0].Void,"p":[Products.Kind]},{"a":2,"n":"SetTimeLeft","t":8,"pi":[{"n":"value","pt":$n[0].Single,"ps":0}],"sn":"SetTimeLeft","rt":$n[0].Void,"p":[$n[0].Single]},{"a":1,"n":"Update","t":8,"sn":"Update","rt":$n[0].Void},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"Kind","t":4,"rt":Products.Kind,"sn":"Kind","box":function ($v) { return Bridge.box($v, Products.Kind, System.Enum.toStringFn(Products.Kind));}},{"a":1,"n":"TimeLeft","t":4,"rt":$n[0].Single,"sn":"TimeLeft","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"imgIcon","t":4,"rt":$n[3].Image,"sn":"imgIcon"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"sprites","t":4,"rt":System.Array.type(UIActiveBoost.SpriteByKind),"sn":"sprites"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"timerImg","t":4,"rt":$n[3].Image,"sn":"timerImg"},{"a":1,"n":"timerValue","t":4,"rt":$n[0].Single,"sn":"timerValue","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}}]}; }, $n);
     /*UIActiveBoost end.*/
 
     /*UIActiveBoost+SpriteByKind start.*/
