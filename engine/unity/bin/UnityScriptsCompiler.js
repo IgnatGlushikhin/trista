@@ -1,5 +1,5 @@
 /**
- * @version 1.0.7786.35964
+ * @version 1.0.7787.26581
  * @copyright anton
  * @compiler Bridge.NET 17.9.11-luna
  */
@@ -3785,9 +3785,8 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
             Start: function () {
                 this.carUserControl = UnityEngine.GameObject.Find("GameManager").GetComponent(GameManager).CarUserControl;
                 this.meshRenderer = this.GetComponent(UnityEngine.MeshRenderer);
-                if (UnityEngine.Component.op_Inequality(this.meshRenderer, null)) {
-                    this.maxDistance = this.meshRenderer.bounds.halfExtents.$clone().scale( 2 ).length() * 10.0;
-                }
+                //if (meshRenderer != null)
+                //    maxDistance = Vector3.Magnitude(meshRenderer.bounds.size) * 10.0f;
             },
             /*DisableIfTooFar.Start end.*/
 
@@ -4329,6 +4328,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
             _WheatCullDistance: 0,
             trackContentGenerator: null,
             wheatGenerator: null,
+            roadGenerator: null,
             ghostReader: null,
             tracktors: null,
             drivers: null,
@@ -4388,6 +4388,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
                 this.ghostReader.pathCreator = this.trackHandles.MainPath;
                 this.trackContentGenerator.Generate(this.trackHandles.MainPath, this.trackParent.transform);
                 this.wheatGenerator.Generate(this.trackHandles.MainPath, this.trackParent.transform);
+                this.roadGenerator.Generate(this.trackHandles.MainPath);
 
                 this.WinScreen.GetComponent(WinScreenWidget).RaceCar = this.PlayerCar;
                 this.LoseScreen.GetComponent(WinScreenWidget).RaceCar = this.PlayerCar;
@@ -8604,6 +8605,60 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
         }
     });
     /*RapidInputDemo end.*/
+
+    /*RoadGenerator start.*/
+    Bridge.define("RoadGenerator", {
+        inherits: [UnityEngine.MonoBehaviour],
+        fields: {
+            fencePiece: null,
+            width: 0
+        },
+        ctors: {
+            init: function () {
+                this.width = 16.5;
+            }
+        },
+        methods: {
+            /*RoadGenerator.Generate start.*/
+            Generate: function (pathCreator) {
+                var distance = 0.0;
+                while (distance < pathCreator.path.length) {
+                    var pathPosition = pathCreator.path.GetPointAtDistance(distance);
+                    var pathRotation = pathCreator.path.GetRotationAtDistance(distance);
+                    var pathDirection = pathCreator.path.GetNormalAtDistance(distance);
+                    var leftPosition = pathPosition.$clone().add( pathDirection.$clone().scale( (-this.width / 2.0) ) );
+                    var rightPosition = pathPosition.$clone().add( pathDirection.$clone().scale( (this.width / 2.0) ) );
+
+                    var leftPiece = UnityEngine.Object.Instantiate$2(UnityEngine.GameObject, this.fencePiece, new pc.Vec3( leftPosition.x, 1.0, leftPosition.z ), pathRotation.$clone());
+                    leftPiece.transform.Rotate(0.0, -90.0, 0.0);
+                    //leftPiece.transform.Rotate(90.0f, -90.0f, 0.0f);
+                    leftPiece.GetComponent(DisableIfTooFar).SetTrackX(distance);
+                    var rightPiece = UnityEngine.Object.Instantiate$2(UnityEngine.GameObject, this.fencePiece, new pc.Vec3( rightPosition.x, 1.0, rightPosition.z ), pathRotation.$clone());
+                    //rightPiece.transform.Rotate(90.0f, -90.0f, 0.0f);
+                    rightPiece.transform.Rotate(0.0, -90.0, 0.0);
+                    rightPiece.GetComponent(DisableIfTooFar).SetTrackX(distance);
+
+                    distance += 4.0;
+                }
+            },
+            /*RoadGenerator.Generate end.*/
+
+            /*RoadGenerator.Start start.*/
+            Start: function () {
+
+            },
+            /*RoadGenerator.Start end.*/
+
+            /*RoadGenerator.Update start.*/
+            Update: function () {
+
+            },
+            /*RoadGenerator.Update end.*/
+
+
+        }
+    });
+    /*RoadGenerator end.*/
 
     /*Rocket start.*/
     Bridge.define("Rocket", {
@@ -13204,6 +13259,10 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
     $m("Products.Kind", function () { return {"td":Products,"att":258,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":2,"n":"Double","is":true,"t":4,"rt":Products.Kind,"sn":"Double","box":function ($v) { return Bridge.box($v, Products.Kind, System.Enum.toStringFn(Products.Kind));}},{"a":2,"n":"Fuel","is":true,"t":4,"rt":Products.Kind,"sn":"Fuel","box":function ($v) { return Bridge.box($v, Products.Kind, System.Enum.toStringFn(Products.Kind));}},{"a":2,"n":"Gem","is":true,"t":4,"rt":Products.Kind,"sn":"Gem","box":function ($v) { return Bridge.box($v, Products.Kind, System.Enum.toStringFn(Products.Kind));}},{"a":2,"n":"Heart","is":true,"t":4,"rt":Products.Kind,"sn":"Heart","box":function ($v) { return Bridge.box($v, Products.Kind, System.Enum.toStringFn(Products.Kind));}},{"a":2,"n":"Rocket","is":true,"t":4,"rt":Products.Kind,"sn":"Rocket","box":function ($v) { return Bridge.box($v, Products.Kind, System.Enum.toStringFn(Products.Kind));}},{"a":2,"n":"Shield","is":true,"t":4,"rt":Products.Kind,"sn":"Shield","box":function ($v) { return Bridge.box($v, Products.Kind, System.Enum.toStringFn(Products.Kind));}},{"a":2,"n":"Wheat","is":true,"t":4,"rt":Products.Kind,"sn":"Wheat","box":function ($v) { return Bridge.box($v, Products.Kind, System.Enum.toStringFn(Products.Kind));}}]}; }, $n);
     /*Products+Kind end.*/
 
+    /*RoadGenerator start.*/
+    $m("RoadGenerator", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":2,"n":"Generate","t":8,"pi":[{"n":"pathCreator","pt":$n[7].PathCreator,"ps":0}],"sn":"Generate","rt":$n[0].Void,"p":[$n[7].PathCreator]},{"a":1,"n":"Start","t":8,"sn":"Start","rt":$n[0].Void},{"a":1,"n":"Update","t":8,"sn":"Update","rt":$n[0].Void},{"a":2,"n":"fencePiece","t":4,"rt":$n[2].GameObject,"sn":"fencePiece"},{"a":1,"n":"width","t":4,"rt":$n[0].Single,"sn":"width","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}}]}; }, $n);
+    /*RoadGenerator end.*/
+
     /*Rocket start.*/
     $m("Rocket", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"Explode","t":8,"sn":"Explode","rt":$n[0].Void},{"a":2,"n":"Fly","t":8,"pi":[{"n":"_path","pt":$n[7].PathCreator,"ps":0},{"n":"_trackX","pt":$n[0].Single,"ps":1},{"n":"_trackY","pt":$n[0].Single,"ps":2},{"n":"_additionalSpeed","pt":$n[0].Single,"ps":3}],"sn":"Fly","rt":$n[0].Void,"p":[$n[7].PathCreator,$n[0].Single,$n[0].Single,$n[0].Single]},{"a":1,"n":"OnTriggerEnter","t":8,"pi":[{"n":"other","pt":$n[2].Collider,"ps":0}],"sn":"OnTriggerEnter","rt":$n[0].Void,"p":[$n[2].Collider]},{"a":1,"n":"RefreshPosition","t":8,"sn":"RefreshPosition","rt":$n[0].Void},{"a":1,"n":"Start","t":8,"sn":"Start","rt":$n[0].Void},{"a":1,"n":"Update","t":8,"sn":"Update","rt":$n[0].Void},{"a":1,"n":"additionalSpeed","t":4,"rt":$n[0].Single,"sn":"additionalSpeed","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"explosionPrefab","t":4,"rt":$n[2].Transform,"sn":"explosionPrefab"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"jetStream","t":4,"rt":$n[2].ParticleSystem,"sn":"jetStream"},{"a":1,"n":"path","t":4,"rt":$n[7].PathCreator,"sn":"path"},{"a":1,"n":"selfSpeed","t":4,"rt":$n[0].Single,"sn":"selfSpeed","ro":true,"box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":1,"n":"trackX","t":4,"rt":$n[0].Single,"sn":"trackX","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":1,"n":"trackY","t":4,"rt":$n[0].Single,"sn":"trackY","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}}]}; }, $n);
     /*Rocket end.*/
@@ -13243,7 +13302,7 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
     /*FinishTrigger end.*/
 
     /*GameManager start.*/
-    $m("GameManager", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"Awake","t":8,"sn":"Awake","rt":$n[0].Void},{"a":2,"n":"CallFinishWebContent","t":8,"sn":"CallFinishWebContent","rt":$n[0].Void},{"a":2,"n":"CheatTeleportToFinish","t":8,"sn":"CheatTeleportToFinish","rt":$n[0].Void},{"a":2,"n":"DestroyObstacles","t":8,"sn":"DestroyObstacles","rt":$n[0].Void},{"a":2,"n":"GasOnOff","t":8,"sn":"GasOnOff","rt":$n[0].Void},{"a":2,"n":"GetInputProperties","t":8,"sn":"GetInputProperties","rt":WebContentProxy.InputProperties},{"a":2,"n":"GetOutputProperties","t":8,"sn":"GetOutputProperties","rt":WebContentProxy.OutputProperties},{"a":1,"n":"OnCountdownEndedHandler","t":8,"sn":"OnCountdownEndedHandler","rt":$n[0].Void},{"a":1,"n":"OnDestroy","t":8,"sn":"OnDestroy","rt":$n[0].Void},{"a":1,"n":"OnEndTutorialHandler","t":8,"sn":"OnEndTutorialHandler","rt":$n[0].Void},{"a":1,"n":"PauseGameplay","t":8,"sn":"PauseGameplay","rt":$n[0].Void},{"a":2,"n":"ReloadScene","t":8,"sn":"ReloadScene","rt":$n[0].Void},{"a":1,"n":"ResumeGameplay","t":8,"sn":"ResumeGameplay","rt":$n[0].Void},{"a":2,"n":"SetOutputProperties","t":8,"pi":[{"n":"properties","pt":WebContentProxy.OutputProperties,"ps":0}],"sn":"SetOutputProperties","rt":$n[0].Void,"p":[WebContentProxy.OutputProperties]},{"a":1,"n":"Start","t":8,"sn":"Start","rt":$n[0].Void},{"a":2,"n":"StartGame","t":8,"sn":"StartGame","rt":$n[0].Void},{"a":1,"n":"Update","t":8,"sn":"Update","rt":$n[0].Void},{"a":1,"n":"UpdatePositions","t":8,"sn":"UpdatePositions","rt":$n[0].Void},{"a":1,"n":"WheatCull","t":8,"sn":"WheatCull","rt":$n[0].Void},{"a":2,"n":"CarUserControl","t":4,"rt":CarUserControl,"sn":"CarUserControl"},{"at":[new UnityEngine.HeaderAttribute("UI")],"a":2,"n":"CountdownWidget","t":4,"rt":Countdown,"sn":"CountdownWidget"},{"a":2,"n":"LandscapeFov","t":4,"rt":$n[0].Single,"sn":"LandscapeFov","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":2,"n":"LastCheckpoint","t":4,"rt":$n[2].Transform,"sn":"LastCheckpoint"},{"a":2,"n":"LoseScreen","t":4,"rt":$n[2].CanvasGroup,"sn":"LoseScreen"},{"a":2,"n":"MainBackroundImage","t":4,"rt":$n[3].Image,"sn":"MainBackroundImage"},{"at":[new UnityEngine.HeaderAttribute("Camera")],"a":2,"n":"MainCamera","t":4,"rt":$n[2].Camera,"sn":"MainCamera"},{"a":2,"n":"MainScreen","t":4,"rt":$n[2].CanvasGroup,"sn":"MainScreen"},{"a":2,"n":"Opponents","t":4,"rt":System.Array.type(Bot),"sn":"Opponents"},{"at":[new UnityEngine.HeaderAttribute("Positions")],"a":2,"n":"PlayerCar","t":4,"rt":RaceCar,"sn":"PlayerCar"},{"a":2,"n":"PortraitFov","t":4,"rt":$n[0].Single,"sn":"PortraitFov","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":2,"n":"Position","t":4,"rt":$n[0].Int32,"sn":"Position","box":function ($v) { return Bridge.box($v, System.Int32);}},{"a":2,"n":"TutorialWindow","t":4,"rt":$n[2].CanvasGroup,"sn":"TutorialWindow"},{"a":2,"n":"WheatCullDistance","t":4,"rt":$n[0].Single,"sn":"WheatCullDistance","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":2,"n":"WinScreen","t":4,"rt":$n[2].CanvasGroup,"sn":"WinScreen"},{"a":1,"n":"_OpponentDistance","t":4,"rt":$n[0].Single,"sn":"_OpponentDistance","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":1,"n":"_PlayerDistance","t":4,"rt":$n[0].Single,"sn":"_PlayerDistance","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":1,"n":"_WebContentProxy","t":4,"rt":WebContentProxy,"sn":"_WebContentProxy"},{"a":1,"n":"_Wheat","t":4,"rt":System.Array.type(UnityEngine.Transform),"sn":"_Wheat"},{"at":[new UnityEngine.HeaderAttribute("Wheat"),new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"_WheatCullDistance","t":4,"rt":$n[0].Single,"sn":"_WheatCullDistance","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":2,"n":"btnLeft","t":4,"rt":LongTapButton,"sn":"btnLeft"},{"a":2,"n":"btnRight","t":4,"rt":LongTapButton,"sn":"btnRight"},{"a":2,"n":"drivers","t":4,"rt":System.Array.type(DriverDescription),"sn":"drivers"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"ghostReader","t":4,"rt":GhostReader,"sn":"ghostReader"},{"a":2,"n":"healthBar","t":4,"rt":HealthBar,"sn":"healthBar"},{"a":2,"n":"healthController","t":4,"rt":HealthController,"sn":"healthController"},{"a":1,"n":"track","t":4,"rt":$n[2].GameObject,"sn":"track"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"trackContentGenerator","t":4,"rt":TrackContentGenerator,"sn":"trackContentGenerator"},{"a":1,"n":"trackHandles","t":4,"rt":TrackHandles,"sn":"trackHandles"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"trackParent","t":4,"rt":$n[2].GameObject,"sn":"trackParent"},{"a":2,"n":"trackPrefabs","t":4,"rt":System.Array.type(UnityEngine.GameObject),"sn":"trackPrefabs"},{"at":[new UnityEngine.HeaderAttribute("Customization")],"a":2,"n":"tracktors","t":4,"rt":System.Array.type(UnityEngine.GameObject),"sn":"tracktors"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"wheatGenerator","t":4,"rt":WheatGenerator,"sn":"wheatGenerator"}]}; }, $n);
+    $m("GameManager", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"Awake","t":8,"sn":"Awake","rt":$n[0].Void},{"a":2,"n":"CallFinishWebContent","t":8,"sn":"CallFinishWebContent","rt":$n[0].Void},{"a":2,"n":"CheatTeleportToFinish","t":8,"sn":"CheatTeleportToFinish","rt":$n[0].Void},{"a":2,"n":"DestroyObstacles","t":8,"sn":"DestroyObstacles","rt":$n[0].Void},{"a":2,"n":"GasOnOff","t":8,"sn":"GasOnOff","rt":$n[0].Void},{"a":2,"n":"GetInputProperties","t":8,"sn":"GetInputProperties","rt":WebContentProxy.InputProperties},{"a":2,"n":"GetOutputProperties","t":8,"sn":"GetOutputProperties","rt":WebContentProxy.OutputProperties},{"a":1,"n":"OnCountdownEndedHandler","t":8,"sn":"OnCountdownEndedHandler","rt":$n[0].Void},{"a":1,"n":"OnDestroy","t":8,"sn":"OnDestroy","rt":$n[0].Void},{"a":1,"n":"OnEndTutorialHandler","t":8,"sn":"OnEndTutorialHandler","rt":$n[0].Void},{"a":1,"n":"PauseGameplay","t":8,"sn":"PauseGameplay","rt":$n[0].Void},{"a":2,"n":"ReloadScene","t":8,"sn":"ReloadScene","rt":$n[0].Void},{"a":1,"n":"ResumeGameplay","t":8,"sn":"ResumeGameplay","rt":$n[0].Void},{"a":2,"n":"SetOutputProperties","t":8,"pi":[{"n":"properties","pt":WebContentProxy.OutputProperties,"ps":0}],"sn":"SetOutputProperties","rt":$n[0].Void,"p":[WebContentProxy.OutputProperties]},{"a":1,"n":"Start","t":8,"sn":"Start","rt":$n[0].Void},{"a":2,"n":"StartGame","t":8,"sn":"StartGame","rt":$n[0].Void},{"a":1,"n":"Update","t":8,"sn":"Update","rt":$n[0].Void},{"a":1,"n":"UpdatePositions","t":8,"sn":"UpdatePositions","rt":$n[0].Void},{"a":1,"n":"WheatCull","t":8,"sn":"WheatCull","rt":$n[0].Void},{"a":2,"n":"CarUserControl","t":4,"rt":CarUserControl,"sn":"CarUserControl"},{"at":[new UnityEngine.HeaderAttribute("UI")],"a":2,"n":"CountdownWidget","t":4,"rt":Countdown,"sn":"CountdownWidget"},{"a":2,"n":"LandscapeFov","t":4,"rt":$n[0].Single,"sn":"LandscapeFov","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":2,"n":"LastCheckpoint","t":4,"rt":$n[2].Transform,"sn":"LastCheckpoint"},{"a":2,"n":"LoseScreen","t":4,"rt":$n[2].CanvasGroup,"sn":"LoseScreen"},{"a":2,"n":"MainBackroundImage","t":4,"rt":$n[3].Image,"sn":"MainBackroundImage"},{"at":[new UnityEngine.HeaderAttribute("Camera")],"a":2,"n":"MainCamera","t":4,"rt":$n[2].Camera,"sn":"MainCamera"},{"a":2,"n":"MainScreen","t":4,"rt":$n[2].CanvasGroup,"sn":"MainScreen"},{"a":2,"n":"Opponents","t":4,"rt":System.Array.type(Bot),"sn":"Opponents"},{"at":[new UnityEngine.HeaderAttribute("Positions")],"a":2,"n":"PlayerCar","t":4,"rt":RaceCar,"sn":"PlayerCar"},{"a":2,"n":"PortraitFov","t":4,"rt":$n[0].Single,"sn":"PortraitFov","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":2,"n":"Position","t":4,"rt":$n[0].Int32,"sn":"Position","box":function ($v) { return Bridge.box($v, System.Int32);}},{"a":2,"n":"TutorialWindow","t":4,"rt":$n[2].CanvasGroup,"sn":"TutorialWindow"},{"a":2,"n":"WheatCullDistance","t":4,"rt":$n[0].Single,"sn":"WheatCullDistance","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":2,"n":"WinScreen","t":4,"rt":$n[2].CanvasGroup,"sn":"WinScreen"},{"a":1,"n":"_OpponentDistance","t":4,"rt":$n[0].Single,"sn":"_OpponentDistance","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":1,"n":"_PlayerDistance","t":4,"rt":$n[0].Single,"sn":"_PlayerDistance","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":1,"n":"_WebContentProxy","t":4,"rt":WebContentProxy,"sn":"_WebContentProxy"},{"a":1,"n":"_Wheat","t":4,"rt":System.Array.type(UnityEngine.Transform),"sn":"_Wheat"},{"at":[new UnityEngine.HeaderAttribute("Wheat"),new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"_WheatCullDistance","t":4,"rt":$n[0].Single,"sn":"_WheatCullDistance","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":2,"n":"btnLeft","t":4,"rt":LongTapButton,"sn":"btnLeft"},{"a":2,"n":"btnRight","t":4,"rt":LongTapButton,"sn":"btnRight"},{"a":2,"n":"drivers","t":4,"rt":System.Array.type(DriverDescription),"sn":"drivers"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"ghostReader","t":4,"rt":GhostReader,"sn":"ghostReader"},{"a":2,"n":"healthBar","t":4,"rt":HealthBar,"sn":"healthBar"},{"a":2,"n":"healthController","t":4,"rt":HealthController,"sn":"healthController"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"roadGenerator","t":4,"rt":RoadGenerator,"sn":"roadGenerator"},{"a":1,"n":"track","t":4,"rt":$n[2].GameObject,"sn":"track"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"trackContentGenerator","t":4,"rt":TrackContentGenerator,"sn":"trackContentGenerator"},{"a":1,"n":"trackHandles","t":4,"rt":TrackHandles,"sn":"trackHandles"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"trackParent","t":4,"rt":$n[2].GameObject,"sn":"trackParent"},{"a":2,"n":"trackPrefabs","t":4,"rt":System.Array.type(UnityEngine.GameObject),"sn":"trackPrefabs"},{"at":[new UnityEngine.HeaderAttribute("Customization")],"a":2,"n":"tracktors","t":4,"rt":System.Array.type(UnityEngine.GameObject),"sn":"tracktors"},{"at":[new UnityEngine.SerializeFieldAttribute()],"a":1,"n":"wheatGenerator","t":4,"rt":WheatGenerator,"sn":"wheatGenerator"}]}; }, $n);
     /*GameManager end.*/
 
     /*Localization start.*/
