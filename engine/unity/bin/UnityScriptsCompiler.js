@@ -1,5 +1,5 @@
 /**
- * @version 1.0.7787.27848
+ * @version 1.0.7787.29965
  * @copyright anton
  * @compiler Bridge.NET 17.9.11-luna
  */
@@ -4324,6 +4324,44 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
         }
     });
     /*FinishTrigger end.*/
+
+    /*FPSWriter start.*/
+    Bridge.define("FPSWriter", {
+        inherits: [UnityEngine.MonoBehaviour],
+        fields: {
+            m_frameCounter: 0,
+            m_timeCounter: 0,
+            m_lastFramerate: 0,
+            m_refreshTime: 0
+        },
+        ctors: {
+            init: function () {
+                this.m_frameCounter = 0;
+                this.m_timeCounter = 0.0;
+                this.m_lastFramerate = 0.0;
+                this.m_refreshTime = 0.5;
+            }
+        },
+        methods: {
+            /*FPSWriter.Update start.*/
+            Update: function () {
+                if (this.m_timeCounter < this.m_refreshTime) {
+                    this.m_timeCounter += UnityEngine.Time.deltaTime;
+                    this.m_frameCounter = (this.m_frameCounter + 1) | 0;
+                } else {
+                    //This code will break if you set your m_refreshTime to 0, which makes no sense.
+                    this.m_lastFramerate = this.m_frameCounter / this.m_timeCounter;
+                    this.m_frameCounter = 0;
+                    this.m_timeCounter = 0.0;
+                }
+                this.GetComponent(UnityEngine.UI.Text).text = System.String.format("{0} FPS", [System.Single.format(this.m_lastFramerate, "0.")]);
+            },
+            /*FPSWriter.Update end.*/
+
+
+        }
+    });
+    /*FPSWriter end.*/
 
     /*GameManager start.*/
     Bridge.define("GameManager", {
@@ -13222,6 +13260,10 @@ Bridge.assembly("UnityScriptsCompiler", function ($asm, globals) {
     /*RuntimeDemo+ExampleClass7 start.*/
     $m("RuntimeDemo.ExampleClass7", function () { return {"td":RuntimeDemo,"att":1056770,"a":2,"at":[new System.SerializableAttribute()],"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":2,"n":"done","t":4,"rt":$n[0].Boolean,"sn":"done","box":function ($v) { return Bridge.box($v, System.Boolean, System.Boolean.toString);}}]}; }, $n);
     /*RuntimeDemo+ExampleClass7 end.*/
+
+    /*FPSWriter start.*/
+    $m("FPSWriter", function () { return {"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"Update","t":8,"sn":"Update","rt":$n[0].Void},{"a":1,"n":"m_frameCounter","t":4,"rt":$n[0].Int32,"sn":"m_frameCounter","box":function ($v) { return Bridge.box($v, System.Int32);}},{"a":1,"n":"m_lastFramerate","t":4,"rt":$n[0].Single,"sn":"m_lastFramerate","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":2,"n":"m_refreshTime","t":4,"rt":$n[0].Single,"sn":"m_refreshTime","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":1,"n":"m_timeCounter","t":4,"rt":$n[0].Single,"sn":"m_timeCounter","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}}]}; }, $n);
+    /*FPSWriter end.*/
 
     /*GhostReader start.*/
     $m("GhostReader", function () { return {"nested":[GhostReader.EntryKind,GhostReader.Entry],"att":1048577,"a":2,"m":[{"a":2,"isSynthetic":true,"n":".ctor","t":1,"sn":"ctor"},{"a":1,"n":"Perform","t":8,"pi":[{"n":"entry","pt":GhostReader.Entry,"ps":0}],"sn":"Perform","rt":$n[0].Void,"p":[GhostReader.Entry]},{"a":1,"n":"Start","t":8,"sn":"Start","rt":$n[0].Void},{"a":1,"n":"Update","t":8,"sn":"Update","rt":$n[0].Void},{"a":2,"n":"data","t":4,"rt":$n[1].List$1(GhostReader.Entry),"sn":"data"},{"a":1,"n":"distance","t":4,"rt":$n[0].Single,"sn":"distance","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":2,"n":"ghost","t":4,"rt":$n[2].Transform,"sn":"ghost"},{"a":1,"n":"isTurningLeft","t":4,"rt":$n[0].Boolean,"sn":"isTurningLeft","box":function ($v) { return Bridge.box($v, System.Boolean, System.Boolean.toString);}},{"a":1,"n":"isTurningRight","t":4,"rt":$n[0].Boolean,"sn":"isTurningRight","box":function ($v) { return Bridge.box($v, System.Boolean, System.Boolean.toString);}},{"a":2,"n":"pathCreator","t":4,"rt":$n[7].PathCreator,"sn":"pathCreator"},{"a":1,"n":"sideOffset","t":4,"rt":$n[0].Single,"sn":"sideOffset","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":1,"n":"speed","t":4,"rt":$n[0].Single,"sn":"speed","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":1,"n":"started","t":4,"rt":$n[0].Boolean,"sn":"started","box":function ($v) { return Bridge.box($v, System.Boolean, System.Boolean.toString);}},{"a":2,"n":"timer","t":4,"rt":$n[0].Single,"sn":"timer","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}},{"a":1,"n":"turningAngle","t":4,"rt":$n[0].Single,"sn":"turningAngle","box":function ($v) { return Bridge.box($v, System.Single, System.Single.format, System.Single.getHashCode);}}]}; }, $n);
